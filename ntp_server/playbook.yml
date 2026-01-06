@@ -1,0 +1,115 @@
+---
+- name: NTP 서버 구성 (ansible)
+  hosts: ntp_server
+  become: true
+
+  handlers:
+    - name: chronyd 재시작
+      ansible.builtin.systemd:
+        name: chronyd
+        state: restarted
+
+  tasks:
+    - name: chrony 설치
+      ansible.builtin.dnf:
+        name: chrony
+        state: present
+
+    - name: firewalld 설치
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+
+    - name: firewalld 실행 및 부팅 자동 시작 설정
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: true
+
+    - name: 방화벽에 NTP(123/UDP) 허용
+      block:
+        - name: firewalld 모듈로 NTP 서비스 허용
+          ansible.posix.firewalld:
+            service: ntp
+            permanent: true
+            state: enabled
+            immediate: true
+      rescue:
+        - name: firewall-cmd로 NTP 서비스 허용(대체)
+          ansible.builtin.command: firewall-cmd --permanent --add-service=ntp
+          register: fw_add
+          changed_when: "'success' in (fw_add.stdout | lower) or fw_add.rc == 0"
+
+        - name: 방화벽 리로드
+          ansible.builtin.command: firewall-cmd --reload
+          register: fw_reload
+          changed_when: "'success' in (fw_reload.stdout | lower) or fw_reload.rc == 0"
+
+    - name: chrony 서버 설정 배포
+      ansible.builtin.template:
+        src: templates/chrony.conf.server.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: chronyd 재시작
+
+    - name: chronyd 활성화 및 실행 보장
+      ansible.builtin.systemd:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: 서버 상태 확인(chronyc tracking)
+      ansible.builtin.command: chronyc tracking
+      register: tracking_out
+      changed_when: false
+
+    - name: 서버 tracking 출력
+      ansible.builtin.debug:
+        var: tracking_out.stdout_lines
+
+
+- name: NTP 클라이언트 구성 (나머지 호스트)
+  hosts: ntp_clients
+  become: true
+
+  vars:
+    ntp_server_ip: "{{ hostvars[groups['ntp_server'][0]].ansible_host | default(groups['ntp_server'][0]) }}"
+
+  handlers:
+    - name: chronyd 재시작
+      ansible.builtin.systemd:
+        name: chronyd
+        state: restarted
+
+  tasks:
+    - name: chrony 설치
+      ansible.builtin.dnf:
+        name: chrony
+        state: present
+
+    - name: chrony 클라이언트 설정 배포
+      ansible.builtin.template:
+        src: templates/chrony.conf.client.j2
+        dest: /etc/chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: chronyd 재시작
+
+    - name: chronyd 활성화 및 실행 보장
+      ansible.builtin.systemd:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: 클라이언트 상태 확인(chronyc sources -v)
+      ansible.builtin.command: chronyc sources -v
+      register: sources_out
+      changed_when: false
+
+    - name: 클라이언트 sources 출력
+      ansible.builtin.debug:
+        var: sources_out.stdout_lines
+

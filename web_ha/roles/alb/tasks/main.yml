@@ -1,0 +1,64 @@
+---
+- name: "haproxy 설치"
+  ansible.builtin.dnf:
+    name: haproxy
+    state: present
+
+- name: "firewalld 설치"
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: "firewalld 활성화/시작"
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: "로드밸런서 방화벽에서 HTTP 허용"
+  ansible.builtin.command: firewall-cmd --permanent --add-service=http
+  changed_when: false
+
+- name: "방화벽 반영"
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+
+- name: "SELinux에서 HAProxy 백엔드 연결 허용"
+  ansible.builtin.command: setsebool -P haproxy_connect_any 1
+  changed_when: false
+  failed_when: false
+
+- name: "HAProxy 설정 배포"
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  notify: "haproxy 검증 후 재시작"
+
+- name: "haproxy 자동 재시작 정책 강화(systemd override 디렉토리)"
+  ansible.builtin.file:
+    path: /etc/systemd/system/haproxy.service.d
+    state: directory
+    mode: "0755"
+
+- name: "haproxy systemd override 배포"
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/haproxy.service.d/override.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Restart=always
+      RestartSec=2
+
+- name: "systemd 데몬 리로드"
+  ansible.builtin.command: systemctl daemon-reload
+  changed_when: false
+
+- name: "haproxy 서비스 활성화/시작"
+  ansible.builtin.service:
+    name: haproxy
+    state: started
+    enabled: true
+

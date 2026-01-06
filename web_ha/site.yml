@@ -1,0 +1,13 @@
+---
+- name: "웹 이중화 구성"
+  hosts: web
+  become: true
+  roles:
+    - web
+
+- name: "ALB(HAProxy) 구성"
+  hosts: alb
+  become: true
+  roles:
+    - alb
+

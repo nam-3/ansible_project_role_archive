@@ -1,0 +1,9 @@
+haproxy_frontend_port: 80
+
+# /etc/hosts에 이미 이름이 있으니 host는 FQDN 그대로 사용
+web_backends:
+  - { name: "web1", host: "web1.example.com", port: 80 }
+  - { name: "web2", host: "web2.example.com", port: 80 }
+
+haproxy_health_path: /health
+
