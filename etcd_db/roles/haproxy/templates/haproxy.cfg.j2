@@ -1,0 +1,5 @@
+listen postgresql_cluster
+    bind 192.168.20.100:5432
+    option httpchk GET /master
+    server db1 192.168.30.30:5432 check port 8008
+    server db2 192.168.30.40:5432 check port 8008

@@ -1,0 +1,57 @@
+---
+# 1. 바이너리 파일 복사 (Ansible Server -> Target Server)
+- name: Copy ETCD binaries to /usr/local/bin
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+    owner: root
+    group: root
+  with_items:
+    - etcd
+    - etcdctl
+  notify: restart etcd
+
+# 2. 필수 디렉토리 생성
+- name: Create configuration and data directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - /var/lib/etcd
+    - /etc/etcd
+
+# 3. 설정 파일 배포
+- name: Configure ETCD environment file
+  template:
+    src: etcd.conf.j2
+    dest: /etc/etcd/etcd.conf
+  notify: restart etcd
+
+# 4. Systemd 서비스 파일 생성
+- name: Create Systemd unit file
+  template:
+    src: etcd.service.j2
+    dest: /etc/systemd/system/etcd.service
+  notify: restart etcd
+
+# 5. 방화벽 설정 (CentOS 9 firewalld)
+- name: Open firewall ports for ETCD
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  with_items:
+    - 2379/tcp
+    - 2380/tcp
+  ignore_errors: yes # firewalld가 안 켜져 있을 경우 무시
+
+# 6. 서비스 시작
+- name: Enable and Start ETCD service
+  systemd:
+    name: etcd
+    state: started
+    enabled: yes
+    daemon_reload: yes

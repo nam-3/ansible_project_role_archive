@@ -1,0 +1,20 @@
+# Node Name
+ETCD_NAME="{{ inventory_hostname }}"
+
+# Data Directory
+ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
+
+# Listen URLs (30번 대역 IP)
+ETCD_LISTEN_PEER_URLS="http://{{ service_ip }}:2380"
+ETCD_LISTEN_CLIENT_URLS="http://{{ service_ip }}:2379,http://127.0.0.1:2379"
+
+# Advertise URLs (다른 노드에게 알릴 내 주소)
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ service_ip }}:2380"
+ETCD_ADVERTISE_CLIENT_URLS="http://{{ service_ip }}:2379"
+
+# Cluster Members (3대 노드 고정)
+ETCD_INITIAL_CLUSTER="db1=http://192.168.30.30:2380,db2=http://192.168.30.40:2380,dcs=http://192.168.30.50:2380"
+
+# Initial Cluster Settings
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="etcd-db-cluster-token"
