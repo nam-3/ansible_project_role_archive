@@ -1,0 +1,26 @@
+$TTL 1D
+@   IN SOA  ns1.{{ domain_name }}. root.{{ domain_name }}. (
+                    {{ ansible_date_time.epoch }}  ; Serial
+                    1H          ; Refresh
+                    15M         ; Retry
+                    1W          ; Expire
+                    1H )        ; Minimum TTL
+    IN  NS      ns1.{{ domain_name }}.
+
+; --- DNS Server ---
+ns1     IN  A   {{ dns_server_ip }}
+
+; --- Dynamic Inventory Records (Multi-NIC Supported) ---
+{% for host in groups['all_nodes'] %}
+{% if host in play_hosts %}
+; ------------------------------------------------
+; Hostname: {{ host }}
+; ------------------------------------------------
+  {% if hostvars[host]['ansible_all_ipv4_addresses'] is defined %}
+  {% for ip in hostvars[host]['ansible_all_ipv4_addresses'] %}
+{{ host }}    IN  A   {{ ip }}
+  {% endfor %}
+  {% endif %}
+
+{% endif %}
+{% endfor %}

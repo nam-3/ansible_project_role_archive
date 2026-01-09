@@ -1,0 +1,20 @@
+$TTL 1D
+@   IN SOA  ns1.infra.internal. root.infra.internal. (
+                    {{ ansible_date_time.epoch }} ; Serial
+                    1H          ; Refresh
+                    15M         ; Retry
+                    1W          ; Expire
+                    1H )        ; Minimum TTL
+    IN  NS      ns1.infra.internal.
+
+; DNS Server IP
+ns1     IN  A   {{ hostvars['ansible_mgr']['ansible_host'] }}
+
+; ==========================================================
+; [자동 감지] 살아있는 서버 레코드만 생성
+; ==========================================================
+{% for host in groups['all_nodes'] %}
+{% if hostvars[host]['ansible_facts'] is defined %}
+{{ "%-15s" | format(host) }} IN  A   {{ hostvars[host]['ansible_host'] }}
+{% endif %}
+{% endfor %}
