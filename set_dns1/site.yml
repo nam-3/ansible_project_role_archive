@@ -1,0 +1,380 @@
+---
+################################################################################
+# Play 1) 192.168.40.10~250 ICMP 스캔 -> discovered 동적 인벤토리 구성
+################################################################################
+- name: "1) 살아있는 IP 스캔 및 동적 인벤토리 구성"
+  hosts: localhost
+  gather_facts: false
+  become: true
+  tasks:
+    - name: "(스캔) nmap 설치"
+      ansible.builtin.dnf:
+        name: nmap
+        state: present
+
+    - name: "(스캔) ICMP ping sweep 후 Up IP만 추출(awk)"
+      ansible.builtin.shell: |
+        set -o pipefail
+        nmap -n -sn {{ scan_subnet_prefix }}{{ scan_start }}-{{ scan_end }} -oG - \
+          | awk '/Status: Up/{print $2}'
+      args:
+        executable: /bin/bash
+      register: alive_scan
+      changed_when: false
+
+    - name: "(파싱) Up 인 IP만 리스트로 저장"
+      ansible.builtin.set_fact:
+        alive_ips: "{{ alive_scan.stdout_lines | select('match','^[0-9.]+$') | unique | list }}"
+
+    - name: "(디버그) 발견된 alive IP"
+      ansible.builtin.debug:
+        var: alive_ips
+
+    - name: "(동적 인벤토리) alive IP를 discovered 그룹에 추가"
+      ansible.builtin.add_host:
+        name: "disc_{{ item | replace('.', '_') }}"
+        groups: ["discovered"]
+        ansible_host: "{{ item }}"
+        ansible_user: "{{ scan_ssh_user }}"
+        ansible_port: "{{ scan_ssh_port }}"
+        # ansible_ssh_private_key_file: "{{ scan_ssh_private_key_file | default(omit) }}"
+      loop: "{{ alive_ips }}"
+
+
+################################################################################
+# Play 2) discovered 서버에서 hostname/IPv4(멀티 NIC 포함) 수집
+# 핵심 정책:
+#  - 접속용: hostname.example.com -> 관리대역 IP(dns_access_prefix) 1개만 A
+#  - 조회용: hostname-all.example.com -> 해당 서버의 모든 IP를 A 여러개로 노출
+#  - reverse(PTR): 모든 IP -> hostname.example.com 으로 역조회되게
+################################################################################
+- name: "2) discovered 서버에서 hostname/IPv4(멀티 NIC) 수집"
+  hosts: discovered
+  gather_facts: true
+  become: true
+  tasks:
+    - name: "(수집) lo 제외 전체 IPv4"
+      ansible.builtin.set_fact:
+        dns_all_ipv4: >-
+          {{
+            (ansible_facts.all_ipv4_addresses | default([], true))
+            | reject('match','^127\\.')
+            | list
+          }}
+
+    - name: "(수집) 관리대역 IPv4만(dns_access_prefix)"
+      ansible.builtin.set_fact:
+        dns_mgmt_ipv4: >-
+          {{
+            dns_all_ipv4
+            | select('match', '^' + (dns_access_prefix | regex_escape))
+            | list
+          }}
+
+    - name: "(결정) 접속용 IP(hostname A) = 관리대역 첫 번째"
+      ansible.builtin.set_fact:
+        dns_connect_ip: "{{ dns_mgmt_ipv4 | first }}"
+
+    - name: "(검증) 관리대역 IP 없으면 중단"
+      ansible.builtin.fail:
+        msg: "관리대역(dns_access_prefix={{ dns_access_prefix }}) IP가 없어 hostname 접속용 A 레코드를 만들 수 없음. all_ipv4={{ dns_all_ipv4 }}"
+      when: dns_connect_ip is not defined or (dns_connect_ip | length == 0)
+
+    - name: "(결정) 조회용 이름(hostname-all) 생성"
+      ansible.builtin.set_fact:
+        dns_all_name: "{{ ansible_facts.hostname }}{{ dns_all_suffix }}"
+
+    - name: "(결정) 조회용 IP 목록(모든 IP)"
+      ansible.builtin.set_fact:
+        dns_display_ips: "{{ dns_all_ipv4 | unique | list }}"
+
+    - name: "(PTR 대상) 모든 IP를 reverse(PTR)로 등록"
+      ansible.builtin.set_fact:
+        dns_ptr_ipv4: "{{ dns_all_ipv4 | unique | list }}"
+
+    # --- iface 기반 alias 생성 (안전하게: ansible_interfaces 사용) ---
+    - name: "(수집) 인터페이스별 IPv4 맵 생성(가능한 경우)"
+      ansible.builtin.set_fact:
+        dns_iface_ip_map: "{{ dns_iface_ip_map | default({}) | combine({ item: iface_ips }) }}"
+      loop: "{{ ansible_interfaces | default([]) }}"
+      vars:
+        iface_fact: "{{ hostvars[inventory_hostname]['ansible_' ~ item] | default({}) }}"
+        iface_primary: >-
+          {{
+            [iface_fact.ipv4.address]
+            if (iface_fact.ipv4 is defined and iface_fact.ipv4.address is defined)
+            else []
+          }}
+        iface_secondary: "{{ (iface_fact.ipv4_secondaries | default([])) | map(attribute='address') | list }}"
+        iface_ips: "{{ (iface_primary + iface_secondary) | reject('equalto', dns_connect_ip) | unique | list }}"
+      when: item != 'lo' and (iface_ips | length > 0)
+
+    - name: "(Forward 별칭) hostname-<iface>-<n> 또는 hostname-ip<n> 생성"
+      ansible.builtin.set_fact:
+        dns_alias_records: >-
+          {%- set records = [] -%}
+          {%- set hn = ansible_facts.hostname -%}
+
+          {%- if (dns_alias_style | default('iface')) == 'iface' and (dns_iface_ip_map is defined) and (dns_iface_ip_map | length > 0) -%}
+            {%- for iface, ips in dns_iface_ip_map.items() -%}
+              {%- for ip in ips -%}
+                {%- set _ = records.append({'name': hn ~ '-' ~ iface ~ '-' ~ (loop.index|string), 'ip': ip}) -%}
+              {%- endfor -%}
+            {%- endfor -%}
+          {%- else -%}
+            {%- set extras = (dns_all_ipv4 | reject('equalto', dns_connect_ip) | list) -%}
+            {%- for ip in extras -%}
+              {%- set _ = records.append({'name': hn ~ '-ip' ~ (loop.index|string), 'ip': ip}) -%}
+            {%- endfor -%}
+          {%- endif -%}
+
+          {{ records }}
+      when: dns_add_iface_alias | bool
+
+    - name: "(디버그) 수집 결과"
+      ansible.builtin.debug:
+        msg:
+          hostname: "{{ ansible_facts.hostname }}"
+          fqdn: "{{ ansible_facts.hostname }}.{{ dns_domain }}"
+          connect_ip: "{{ dns_connect_ip }}"
+          all_record: "{{ dns_all_name }}.{{ dns_domain }}"
+          all_ips: "{{ dns_all_ipv4 }}"
+          alias_records: "{{ dns_alias_records | default([]) }}"
+
+
+################################################################################
+# Play 3) DNS 서버(BIND) 설정 + forward/reverse zone 자동 생성
+# - reverse zone: 수집된 IP들의 /24 prefix 기준으로 자동 생성
+################################################################################
+- name: "3) DNS 서버(BIND) 자동 구성 및 zone 생성"
+  hosts: dns
+  gather_facts: true
+  become: true
+  vars:
+    zone_dir: "/var/named"
+  handlers:
+    - name: "restart named"
+      ansible.builtin.service:
+        name: named
+        state: restarted
+
+    - name: "reload named"
+      ansible.builtin.service:
+        name: named
+        state: reloaded
+
+  tasks:
+    - name: "(DNS) 패키지 설치(bind, bind-utils)"
+      ansible.builtin.dnf:
+        name:
+          - bind
+          - bind-utils
+        state: present
+
+    - name: "(DNS) reverse zone 목록 생성 (/24 자동)"
+      ansible.builtin.set_fact:
+        reverse_zones: >-
+          {%- set ips = [] -%}
+          {%- for h in (groups['discovered'] | default([])) -%}
+            {%- for ip in (hostvars[h].dns_ptr_ipv4 | default([], true)) -%}
+              {%- if ip is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$') -%}
+                {%- set _ = ips.append(ip) -%}
+              {%- endif -%}
+            {%- endfor -%}
+          {%- endfor -%}
+          {%- set prefixes = ips | map('regex_replace','^(\\d+\\.\\d+\\.\\d+)\\.\\d+$','\\1') | unique | list -%}
+          {%- set zones = [] -%}
+          {%- for p in prefixes -%}
+            {%- set oct = p.split('.') -%}
+            {%- set zone = oct[2] ~ '.' ~ oct[1] ~ '.' ~ oct[0] ~ '.in-addr.arpa' -%}
+            {%- set file = 'db.' ~ p -%}
+            {%- set _ = zones.append({'prefix': p, 'zone': zone, 'file': file}) -%}
+          {%- endfor -%}
+          {{ zones }}
+
+    - name: "(디버그) 생성될 reverse zones"
+      ansible.builtin.debug:
+        var: reverse_zones
+
+    - name: "(DNS) named.conf 배포"
+      ansible.builtin.template:
+        src: "templates/named.conf.j2"
+        dest: "/etc/named.conf"
+        mode: "0644"
+      notify: "restart named"
+
+    - name: "(DNS) Forward zone 파일 배포"
+      ansible.builtin.template:
+        src: "templates/zone.forward.j2"
+        dest: "{{ zone_dir }}/{{ dns_forward_zone_file }}"
+        owner: root
+        group: named
+        mode: "0640"
+      notify: "reload named"
+
+    - name: "(DNS) Reverse zone 파일들 배포(/24별)"
+      ansible.builtin.template:
+        src: "templates/zone.reverse.j2"
+        dest: "{{ zone_dir }}/{{ item.file }}"
+        owner: root
+        group: named
+        mode: "0640"
+      loop: "{{ reverse_zones }}"
+      vars:
+        reverse_zone_name: "{{ item.zone }}"
+        reverse_zone_prefix: "{{ item.prefix }}"
+      notify: "reload named"
+
+    - name: "(DNS) SELinux 컨텍스트 복구"
+      ansible.builtin.command: "restorecon -Rv {{ zone_dir }}"
+      changed_when: false
+
+    - name: "(DNS) firewalld DNS 허용"
+      ansible.posix.firewalld:
+        service: dns
+        permanent: true
+        state: enabled
+        immediate: true
+      ignore_errors: true
+
+    - name: "(DNS) named enable/start"
+      ansible.builtin.service:
+        name: named
+        enabled: true
+        state: started
+
+    - name: "(검증) named.conf 문법 체크"
+      ansible.builtin.command: "named-checkconf"
+      changed_when: false
+
+    - name: "(검증) forward zone 체크"
+      ansible.builtin.command: "named-checkzone {{ dns_forward_zone }} {{ zone_dir }}/{{ dns_forward_zone_file }}"
+      changed_when: false
+
+    - name: "(검증) reverse zone 체크"
+      ansible.builtin.command: "named-checkzone {{ item.zone }} {{ zone_dir }}/{{ item.file }}"
+      loop: "{{ reverse_zones }}"
+      changed_when: false
+
+
+################################################################################
+# Play 4) 클라이언트 DNS 등록 (NM 재기동 최소화: reapply 우선 + con up timeout)
+################################################################################
+- name: "4) 클라이언트 DNS 등록 및 nslookup 테스트"
+  hosts: discovered
+  gather_facts: false
+  become: true
+  tasks:
+    - name: "(클라이언트) bind-utils 설치(nslookup)"
+      ansible.builtin.dnf:
+        name: bind-utils
+        state: present
+      when: client_install_bind_utils | bool
+
+    - name: "(클라이언트) nmcli 존재 여부 확인"
+      ansible.builtin.command: "bash -lc 'command -v nmcli'"
+      register: nmcli_check
+      changed_when: false
+      failed_when: false
+
+    - name: "(클라이언트) 활성 커넥션(이름/디바이스) 목록"
+      ansible.builtin.command: "nmcli -t -f NAME,DEVICE con show --active"
+      register: nm_active_map
+      changed_when: false
+      failed_when: false
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0
+
+    - name: "(클라이언트) DNS 서버로 가는 라우트 기준 디바이스 찾기"
+      ansible.builtin.shell: |
+        ip route get {{ dns_server_ip }} 2>/dev/null | awk '/dev/{for(i=1;i<=NF;i++) if($i=="dev"){print $(i+1); exit}}'
+      args:
+        executable: /bin/bash
+      register: route_dev
+      changed_when: false
+      failed_when: false
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0
+
+    - name: "(클라이언트) route dev에 매칭되는 active connection 이름 선택"
+      ansible.builtin.set_fact:
+        target_conns: >-
+          {{
+            (nm_active_map.stdout_lines | default([], true))
+            | select('search', ':' ~ (route_dev.stdout | default('')) ~ '$')
+            | map('regex_replace', ':[^:]+$', '')
+            | list
+          }}
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0
+
+    - name: "(클라이언트) 매칭 실패 시 active connection 전체 사용(fallback)"
+      ansible.builtin.set_fact:
+        target_conns: >-
+          {{
+            (nm_active_map.stdout_lines | default([], true))
+            | map('regex_replace', ':[^:]+$', '')
+            | list
+          }}
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0 and (target_conns | default([], true) | length == 0)
+
+    - name: "(클라이언트) NM DNS 적용 (ignore-auto-dns + dns + search)"
+      ansible.builtin.command: >
+        nmcli con mod "{{ item }}"
+        ipv4.ignore-auto-dns yes
+        ipv4.dns "{{ dns_server_ip }}"
+        ipv4.dns-search "{{ dns_domain }}"
+      loop: "{{ target_conns | default([], true) }}"
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0
+
+    - name: "(클라이언트) 가능하면 dev reapply로 빠르게 반영"
+      ansible.builtin.command: 'nmcli dev reapply "{{ route_dev.stdout }}"'
+      changed_when: false
+      failed_when: false
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0 and client_nm_reapply_first | bool and (route_dev.stdout | default('') | length > 0)
+
+    - name: "(클라이언트) 그래도 필요하면 con up (timeout 적용)"
+      ansible.builtin.shell: |
+        timeout {{ client_nm_up_timeout_sec }} nmcli con up "{{ item }}" || true
+      args:
+        executable: /bin/bash
+      loop: "{{ target_conns | default([], true) }}"
+      changed_when: false
+      when: client_set_nm_dns | bool and nmcli_check.rc == 0
+
+    # --- nmcli 없을 때 fallback ---
+    - name: "(클라이언트) /etc/resolv.conf fallback 적용"
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        mode: "0644"
+        content: |
+          search {{ dns_domain }}
+          nameserver {{ dns_server_ip }}
+      when: client_fallback_resolvconf | bool and nmcli_check.rc != 0
+
+    # --- 테스트 ---
+    - name: "(테스트) forward 조회: hostname -> 관리대역 IP만 나오는지"
+      ansible.builtin.command: >
+        nslookup {{ hostvars[inventory_hostname].ansible_facts.hostname }} {{ dns_server_ip }}
+      register: nslookup_fwd
+      changed_when: false
+      failed_when: false
+
+    - name: "(테스트) forward 조회: hostname-all -> 전체 IP가 나오는지"
+      ansible.builtin.command: >
+        nslookup {{ hostvars[inventory_hostname].ansible_facts.hostname }}{{ dns_all_suffix }} {{ dns_server_ip }}
+      register: nslookup_all
+      changed_when: false
+      failed_when: false
+      when: dns_publish_all_record | bool
+
+    - name: "(테스트) reverse 조회: 이 host의 ansible_host(IP) -> PTR"
+      ansible.builtin.command: "nslookup {{ ansible_host }} {{ dns_server_ip }}"
+      register: nslookup_rev
+      changed_when: false
+      failed_when: false
+
+    - name: "(테스트 결과 출력)"
+      ansible.builtin.debug:
+        msg:
+          forward_hostname: "{{ nslookup_fwd.stdout_lines }}"
+          forward_all: "{{ nslookup_all.stdout_lines | default([]) }}"
+          reverse: "{{ nslookup_rev.stdout_lines }}"
+

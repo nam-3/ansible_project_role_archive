@@ -1,0 +1,4 @@
+web_http_port: 80
+web_health_file: /var/www/html/health
+web_index_file: /var/www/html/index.html
+

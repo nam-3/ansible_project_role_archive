@@ -1,0 +1,46 @@
+---
+- name: (공통) 패키지 설치
+  ansible.builtin.dnf:
+    name:
+      - etcd
+      - firewalld
+    state: present
+
+- name: firewalld 활성화
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: etcd 설정 파일 배포
+  ansible.builtin.template:
+    src: etcd.conf.j2
+    dest: /etc/etcd/etcd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart etcd
+
+- name: etcd 데이터 디렉터리 생성
+  ansible.builtin.file:
+    path: "{{ etcd_data_dir }}"
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: "0700"
+
+- name: 방화벽 열기(etcd client/peer)
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "{{ etcd_client_port }}"
+    - "{{ etcd_peer_port }}"
+
+- name: etcd 시작/활성화
+  ansible.builtin.systemd:
+    name: etcd
+    state: started
+    enabled: true

@@ -1,0 +1,22 @@
+- name: (선택) etcd 데이터 디렉토리 초기화
+  block:
+    - name: etcd 서비스 정지
+      ansible.builtin.systemd:
+        name: etcd
+        state: stopped
+      failed_when: false
+
+    - name: etcd 데이터 디렉토리 비우기
+      ansible.builtin.file:
+        path: "{{ etcd_data_dir }}"
+        state: absent
+
+    - name: etcd 데이터 디렉토리 재생성
+      ansible.builtin.file:
+        path: "{{ etcd_data_dir }}"
+        state: directory
+        owner: "{{ etcd_user }}"
+        group: "{{ etcd_group }}"
+        mode: "0750"
+  when: etcd_force_clean_data | bool
+

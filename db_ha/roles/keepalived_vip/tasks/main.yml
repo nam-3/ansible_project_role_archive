@@ -1,0 +1,44 @@
+---
+- name: "firewalld 패키지 설치"
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: "firewalld 서비스 시작/활성화"
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: "keepalived 설치"
+  ansible.builtin.dnf:
+    name: keepalived
+    state: present
+
+- name: "HAProxy 체크 스크립트 배포"
+  ansible.builtin.template:
+    src: check_haproxy.sh.j2
+    dest: /usr/local/bin/check_haproxy.sh
+    mode: "0755"
+
+- name: "keepalived 설정 배포"
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+  notify: "keepalived 재시작"
+
+# VRRP 프로토콜(112)이 막히면 VIP failover가 안 됨
+- name: "방화벽 VRRP 허용"
+  ansible.builtin.firewalld:
+    protocol: vrrp
+    permanent: true
+    state: enabled
+    immediate: true
+
+- name: "keepalived 시작/활성화"
+  ansible.builtin.systemd:
+    name: keepalived
+    state: started
+    enabled: true
+

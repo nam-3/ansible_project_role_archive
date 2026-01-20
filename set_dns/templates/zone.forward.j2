@@ -1,0 +1,28 @@
+$TTL 86400
+@   IN  SOA {{ dns_server_name }}.{{ dns_domain }}. root.{{ dns_domain }}. (
+        {{ lookup('pipe','date +%Y%m%d%H') }} ; serial
+        3600
+        900
+        604800
+        86400
+)
+
+@   IN  NS  {{ dns_server_name }}.{{ dns_domain }}.
+
+{{ dns_server_name }}  IN  A   {{ dns_server_ip }}
+
+; ===== discovered hosts =====
+{% for h in (groups['discovered'] | default([])) %}
+{% set hn = (hostvars[h].ansible_facts.hostname | default(h)) %}
+{% set primary = hostvars[h].dns_primary_ip | default(None) %}
+{% if primary %}
+{{ hn }}    IN  A   {{ primary }}
+{% endif %}
+
+{% if dns_add_iface_alias and (hostvars[h].dns_alias_records is defined) %}
+{% for rec in hostvars[h].dns_alias_records %}
+{{ rec.name }}  IN  A   {{ rec.ip }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+

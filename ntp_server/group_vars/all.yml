@@ -1,0 +1,12 @@
+---
+# 내부망에서 NTP 요청 허용할 대역
+ntp_allow_subnet: "192.168.40.0/24"
+
+# NTP 서버가 외부(상위) 시간 소스를 사용할 때
+# (인터넷이 막혀있으면 내부 NTP만 쓰도록 이 리스트를 비워도 됨)
+ntp_upstream_servers:
+  - "0.pool.ntp.org"
+  - "1.pool.ntp.org"
+  - "2.pool.ntp.org"
+  - "3.pool.ntp.org"
+

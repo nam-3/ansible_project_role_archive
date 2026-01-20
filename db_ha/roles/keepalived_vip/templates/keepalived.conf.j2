@@ -1,0 +1,33 @@
+# keepalived 설정
+# - dblb1/dblb2 중 한 대만 VIP를 보유
+# - haproxy가 죽으면 우선순위를 떨어뜨려 VIP를 반대편으로 넘김
+
+vrrp_script chk_haproxy {
+  script "/usr/local/bin/check_haproxy.sh"
+  interval 2
+  fall 2
+  rise 2
+  weight -20
+}
+
+vrrp_instance VI_{{ keepalived_vrid }} {
+  state BACKUP
+  interface {{ vip_iface }}
+  virtual_router_id {{ keepalived_vrid }}
+  priority {% if inventory_hostname == 'dblb1' %}120{% else %}110{% endif %}
+  advert_int 1
+
+  authentication {
+    auth_type PASS
+    auth_pass {{ keepalived_auth_pass }}
+  }
+
+  virtual_ipaddress {
+    {{ vip_ip }}/{{ vip_prefixlen }}
+  }
+
+  track_script {
+    chk_haproxy
+  }
+}
+

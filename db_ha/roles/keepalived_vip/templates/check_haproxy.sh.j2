@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# keepalived가 HAProxy 상태를 보고 VIP를 유지할지 결정하는 스크립트
+
+systemctl is-active --quiet haproxy
+exit $?
+

@@ -1,0 +1,33 @@
+global
+    log 127.0.0.1 local2
+    maxconn 4000
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    mode tcp
+    log global
+    option tcplog
+    timeout connect 5s
+    timeout client  50s
+    timeout server  50s
+
+# [FRONTEND] WAS가 붙는 곳 (20번 대역 VIP)
+frontend postgres_front
+    bind {{ vip_address }}:5432
+    default_backend postgres_back
+
+# [BACKEND] 실제 DB로 보내는 곳 (30번 대역)
+backend postgres_back
+    option httpchk GET /master
+    http-check expect status 200
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+
+    # etcd_cluster 그룹을 루프 돌면서 30번 IP(service_ip)를 넣음
+    # dcs 서버 제외 (이름에 'dcs' 있으면 스킵)
+    {% for host in groups['etcd_cluster'] %}
+    {% if 'dcs' not in host %}
+    server {{ host }} {{ hostvars[host]['service_ip'] }}:5432 maxconn 100 check port 8008
+    {% endif %}
+    {% endfor %}

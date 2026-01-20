@@ -1,0 +1,3 @@
+---
+# DB 노드에서 firewalld 사용 여부
+db_manage_firewalld: true

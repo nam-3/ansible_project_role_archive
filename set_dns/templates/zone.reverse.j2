@@ -1,0 +1,24 @@
+$TTL 86400
+@   IN  SOA {{ dns_server_name }}.{{ dns_domain }}. root.{{ dns_domain }}. (
+        {{ lookup('pipe','date +%Y%m%d%H') }} ; serial
+        3600
+        900
+        604800
+        86400
+)
+
+@   IN  NS  {{ dns_server_name }}.{{ dns_domain }}.
+
+; 이 파일은 {{ reverse_zone_prefix }}.0/24 ({{ reverse_zone_name }}) 용
+
+{% for h in (groups['discovered'] | default([])) %}
+{% set hn = (hostvars[h].ansible_facts.hostname | default(h)) %}
+{% set ptr_ips = hostvars[h].dns_ptr_ipv4 | default([]) %}
+{% for ip in ptr_ips %}
+{% if ip.startswith(reverse_zone_prefix ~ '.') %}
+{% set last = ip.split('.')[-1] %}
+{{ last }} IN PTR {{ hn }}.{{ dns_domain }}.
+{% endif %}
+{% endfor %}
+{% endfor %}
+

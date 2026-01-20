@@ -1,0 +1,44 @@
+$TTL 86400
+@   IN  SOA {{ dns_server_name }}.{{ dns_domain }}. root.{{ dns_domain }}. (
+        {{ lookup('pipe','date +%Y%m%d%H') }} ; serial
+        3600
+        900
+        604800
+        86400
+)
+
+@   IN  NS  {{ dns_server_name }}.{{ dns_domain }}.
+{{ dns_server_name }}  IN  A   {{ dns_server_ip }}
+
+; ===== discovered hosts =====
+{% for h in (groups['discovered'] | default([])) %}
+{% set hn = (hostvars[h].ansible_facts.hostname | default(h)) %}
+
+{# dns 서버 이름과 중복 방지 #}
+{% if hn != dns_server_name %}
+
+; (1) 접속용: hostname -> 관리대역 IP 1개만
+{% set connect_ip = hostvars[h].dns_connect_ip | default('') %}
+{% if connect_ip %}
+{{ hn }}    IN  A   {{ connect_ip }}
+{% endif %}
+
+; (2) 조회용: hostname-all -> 모든 IP
+{% if dns_publish_all_record | default(true) %}
+{% set allname = hostvars[h].dns_all_name | default(hn ~ dns_all_suffix) %}
+{% set dips = hostvars[h].dns_display_ips | default([]) %}
+{% for ip in dips %}
+{{ allname }}  IN  A   {{ ip }}
+{% endfor %}
+{% endif %}
+
+; (3) 옵션: 별칭(보여주기용) hostname-ens192-1 등
+{% if dns_add_iface_alias | default(false) and (hostvars[h].dns_alias_records is defined) %}
+{% for rec in hostvars[h].dns_alias_records %}
+{{ rec.name }}  IN  A   {{ rec.ip }}
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endfor %}
+

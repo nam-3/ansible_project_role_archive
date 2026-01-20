@@ -1,0 +1,78 @@
+# Patroni 설정
+# - etcd3(DCS)를 통해 leader election(Primary 선출) 수행
+# - 장애 시 자동 승격(failover)
+# - failback은 자동으로 되돌리지 않도록(운영정책상) 보통 수동 switchover를 권장
+
+scope: "{{ patroni_cluster_name }}"
+namespace: /service/
+name: "{{ inventory_hostname }}"
+
+restapi:
+  listen: "0.0.0.0:{{ patroni_rest_port }}"
+  connect_address: "{{ ansible_host }}:{{ patroni_rest_port }}"
+
+# ✅ DCS(etcd) endpoint는 [dcs] 그룹 기반으로 자동 생성
+etcd3:
+  hosts: "{% for h in groups['dcs'] %}http://{{ hostvars[h].ansible_host }}:2379{% if not loop.last %},{% endif %}{% endfor %}"
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+
+  # 초기 클러스터 생성 시에만 적용되는 설정
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+  # Replication/접속 허용 규칙
+  pg_hba:
+    - "host all all 0.0.0.0/0 md5"
+    - "host replication {{ pg_repl_user }} 0.0.0.0/0 md5"
+
+  # bootstrap 시 생성할 유저/패스워드
+  users:
+    "{{ pg_superuser }}":
+      password: "{{ pg_superpass }}"
+      options:
+        - superuser
+        - createdb
+    "{{ pg_repl_user }}":
+      password: "{{ pg_repl_pass }}"
+      options:
+        - replication
+
+postgresql:
+  listen: "0.0.0.0:{{ pg_port }}"
+  connect_address: "{{ ansible_host }}:{{ pg_port }}"
+  data_dir: "{{ pg_data_dir }}"
+  bin_dir: "/usr/bin"
+  pgpass: /var/lib/pgsql/.pgpass
+
+  authentication:
+    superuser:
+      username: "{{ pg_superuser }}"
+      password: "{{ pg_superpass }}"
+    replication:
+      username: "{{ pg_repl_user }}"
+      password: "{{ pg_repl_pass }}"
+
+  parameters:
+    unix_socket_directories: "/var/run/postgresql"
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+

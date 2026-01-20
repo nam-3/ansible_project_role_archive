@@ -1,0 +1,24 @@
+---
+# 공통
+timezone: Asia/Seoul
+
+# Patroni 공통
+patroni_cluster_name: pg-ha
+patroni_namespace: /service/
+patroni_rest_port: 8008
+patroni_pg_port: 5432
+patroni_data_dir: /var/lib/pgsql/patroni
+patroni_config_dir: /etc/patroni
+patroni_config_file: /etc/patroni/patroni.yml
+
+# 계정/비밀번호(테스트용) — 운영에서는 vault 권장
+patroni_superuser: postgres
+patroni_superuser_password: "postgres"
+patroni_replication_user: replicator
+patroni_replication_password: "replpass"
+patroni_rewind_user: rewind
+patroni_rewind_password: "rewindpass"
+
+# DCS(etcd)
+patroni_etcd_port: 2379
+patroni_etcd_protocol: http

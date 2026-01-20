@@ -1,0 +1,31 @@
+# ===== 스캔 범위 =====
+scan_subnet_prefix: "192.168.40."
+scan_start: 10
+scan_end: 250
+
+# ===== SSH 접속 =====
+scan_ssh_user: "ansible"
+scan_ssh_port: 22
+# scan_ssh_private_key_file: "~/.ssh/id_rsa"   # 필요하면 켜기
+
+# ===== DNS 설정 =====
+dns_domain: "example.com"
+
+# DNS 서버(클라이언트가 바라볼 NS)
+dns_server_ip: "192.168.40.10"
+dns_server_name: "dns1"
+
+# Forward zone
+dns_forward_zone: "{{ dns_domain }}"
+dns_forward_zone_file: "db.{{ dns_domain }}"
+
+# 레코드 정책
+dns_add_iface_alias: true          # hostname-ens192-1 같은 별칭 생성
+dns_prefer_subnet_prefix: "192.168.40."  # primary IP 우선 선택 기준
+
+# Client DNS 적용 (NetworkManager)
+client_set_nm_dns: true
+client_install_bind_utils: true
+client_nm_reapply_first: true      # reapply 먼저 시도
+client_nm_up_timeout_sec: 15       # con up은 timeout 걸고 빠져나오기
+

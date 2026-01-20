@@ -1,0 +1,119 @@
+---
+- name: (공통) 패키지 설치
+  ansible.builtin.dnf:
+    name:
+      - python3-pip
+      - python3-psycopg2
+      - gcc
+      - python3-devel
+      - libpq-devel
+      - postgresql-server
+      - postgresql
+      - firewalld
+    state: present
+
+- name: firewalld 활성화(선택)
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+  when: db_manage_firewalld | bool
+
+- name: PostgreSQL 기본 서비스 비활성화(충돌 방지)
+  ansible.builtin.systemd:
+    name: postgresql
+    state: stopped
+    enabled: false
+  ignore_errors: true
+
+- name: Patroni 설치(pip)
+  ansible.builtin.pip:
+    name:
+      - "patroni[etcd3]"
+      - "psutil"
+    executable: pip3
+    state: present
+
+- name: Patroni 설정 디렉터리 생성
+  ansible.builtin.file:
+    path: "{{ patroni_config_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+
+- name: Patroni 데이터 디렉터리 생성
+  ansible.builtin.file:
+    path: "{{ patroni_data_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: Patroni(etcd3) hosts 리스트 생성 (✅ dcs 그룹만 사용 / ✅ host:port만)
+  ansible.builtin.set_fact:
+    patroni_etcd_hosts: >-
+      {{
+        groups['dcs']
+        | map('extract', hostvars, 'ansible_host')
+        | map('regex_replace', '$', ':' ~ (patroni_etcd_port | string))
+        | list
+      }}
+
+- name: Patroni 설정 파일 배포(/etc/patroni/patroni.yml)
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: "{{ patroni_config_file }}"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: restart patroni
+
+- name: Patroni systemd unit 배포
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/patroni.service
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Patroni PostgreSQL HA
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      User=postgres
+      Group=postgres
+      ExecStart=/usr/local/bin/patroni {{ patroni_config_file }}
+      Restart=on-failure
+      RestartSec=3
+      LimitNOFILE=65536
+
+      [Install]
+      WantedBy=multi-user.target
+  notify:
+    - daemon reload
+    - restart patroni
+
+- name: 방화벽 열기(PostgreSQL/Patroni REST)
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "{{ patroni_pg_port }}"
+    - "{{ patroni_rest_port }}"
+  when: db_manage_firewalld | bool
+
+- name: Patroni 시작/활성화
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+
+- name: Patroni REST 포트 대기(8008)
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ patroni_rest_port }}"
+    timeout: 120

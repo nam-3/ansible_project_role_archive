@@ -1,0 +1,33 @@
+---
+# etcd 버전/다운로드 (tar.gz 기준)
+etcd_version: "3.5.15"
+etcd_download_url: "https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-amd64.tar.gz"
+
+# 설치 경로
+etcd_bin_dir: "/usr/local/bin"
+etcd_conf_dir: "/etc/etcd"
+etcd_conf_file: "/etc/etcd/etcd.yml"
+etcd_data_dir: "/var/lib/etcd"
+
+# 실행 유저/그룹
+etcd_user: "etcd"
+etcd_group: "etcd"
+
+# 클러스터 그룹명(인벤토리의 etcd 그룹 이름)
+# 예: [etcd] 아래에 dcs, db1, db2가 있다면 etcd_group_name: "etcd"
+etcd_group_name: "etcd"
+
+# 포트
+etcd_client_port: 2379
+etcd_peer_port: 2380
+
+# 클러스터 토큰/상태
+etcd_cluster_token: "etcd-cluster-01"
+etcd_initial_cluster_state: "new"   # new | existing
+
+# 강제로 data-dir 초기화할지 (첫 구성에만 true 권장)
+etcd_force_clean_data: true
+
+# 방화벽 열기 (firewalld 사용 시)
+etcd_firewalld_manage: false
+

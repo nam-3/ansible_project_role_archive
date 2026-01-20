@@ -1,0 +1,116 @@
+---
+- name: Clean up All Services and Data (Factory Reset)
+  hosts: all  # lb_nodes, etcd_cluster, postgresql_cluster 모두 포함
+  become: yes
+  tasks:
+    # ---------------------------------------------------------
+    # 1. 서비스 중지 (순서 중요: App -> DB -> DCS)
+    # ---------------------------------------------------------
+    - name: Stop Services if running
+      service:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+      with_items:
+        - haproxy
+        - keepalived
+        - patroni
+        - postgresql-14
+        - postgresql
+        - etcd
+
+    # ---------------------------------------------------------
+    # 2. 프로세스 강제 종료 (좀비 프로세스 방지)
+    # ---------------------------------------------------------
+    - name: Kill remaining processes
+      shell: "pkill -9 {{ item }} || true"
+      ignore_errors: yes
+      with_items:
+        - etcd
+        - patroni
+        - postgres
+        - haproxy
+        - keepalived
+
+    # ---------------------------------------------------------
+    # 3. 패키지 삭제 (CentOS 9 - dnf)
+    # ---------------------------------------------------------
+    - name: Remove Packages
+      dnf:
+        name:
+          - etcd
+          - haproxy
+          - keepalived
+          - patroni
+          - postgresql*
+          - python3-etcd
+        state: absent
+      ignore_errors: yes
+
+    # ---------------------------------------------------------
+    # 4. Pip 패키지 삭제 (Patroni 관련)
+    # ---------------------------------------------------------
+    - name: Remove Pip Packages
+      pip:
+        name:
+          - patroni
+          - python-etcd
+          - psycopg2-binary
+        state: absent
+      ignore_errors: yes
+
+    # ---------------------------------------------------------
+    # 5. [핵심] 데이터 및 설정 디렉토리 완전 삭제 (rm -rf)
+    # ---------------------------------------------------------
+    - name: Remove Data and Config Directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        # ETCD Data (이게 남아있으면 재설치 무조건 실패함)
+        - /var/lib/etcd
+        - /var/lib/etcd/default.etcd
+        - /etc/etcd
+        
+        # PostgreSQL Data
+        - /var/lib/pgsql
+        - /var/lib/postgresql
+        - /etc/postgresql
+        
+        # Patroni Config
+        - /etc/patroni
+        
+        # LB Config
+        - /etc/haproxy
+        - /etc/keepalived
+
+    # ---------------------------------------------------------
+    # 6. 바이너리 및 서비스 파일 삭제
+    # ---------------------------------------------------------
+    - name: Remove Binaries and Systemd files
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /usr/local/bin/etcd
+        - /usr/local/bin/etcdctl
+        - /usr/local/bin/patroni
+        - /etc/systemd/system/etcd.service
+        - /etc/systemd/system/patroni.service
+        - /usr/lib/systemd/system/etcd.service
+
+    # ---------------------------------------------------------
+    # 7. Systemd 데몬 리로드 (삭제 반영)
+    # ---------------------------------------------------------
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
+
+    # ---------------------------------------------------------
+    # 8. (선택) 방화벽 초기화가 필요하다면 주석 해제
+    # ---------------------------------------------------------
+    # - name: Stop Firewalld
+    #   service:
+    #     name: firewalld
+    #     state: stopped

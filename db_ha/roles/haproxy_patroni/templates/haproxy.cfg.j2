@@ -1,0 +1,31 @@
+# HAProxy 설정
+# - VIP(keepalived)가 붙은 DBLB가 5432를 받아서
+# - Patroni REST(/primary) 헬스체크로 Primary DB로만 트래픽 전달
+
+global
+    log /dev/log local0
+    maxconn 2000
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    timeout connect 5s
+    timeout client  1m
+    timeout server  1m
+
+frontend pg_front
+    bind *:{{ haproxy_listen_port }}
+    default_backend pg_back
+
+backend pg_back
+    mode tcp
+    # Patroni REST를 이용해 primary만 살아있다고 판단
+    option httpchk GET /primary
+    http-check expect status 200
+
+{% for h in groups['patroni_db'] %}
+    # server <이름> <DB_IP>:5432 check port=8008 (헬스체크는 8008로)
+    server {{ h }} {{ hostvars[h].ansible_host }}:{{ pg_port }} check port {{ patroni_rest_port }}
+{% endfor %}
+

@@ -1,0 +1,31 @@
+vrrp_script chk_haproxy {
+    script "killall -0 haproxy"
+    interval 2
+}
+
+vrrp_instance VI_1 {
+    # 첫번째 노드 MASTER, 나머지 BACKUP
+    state {% if inventory_hostname == groups['loadbalancers'][0] %}MASTER{% else %}BACKUP{% endif %}
+    
+    # 20번 대역 인터페이스 사용
+    interface {{ vip_interface }}
+    
+    virtual_router_id 51
+    priority {% if inventory_hostname == groups['loadbalancers'][0] %}101{% else %}100{% endif %}
+    advert_int 1
+    
+    # LB끼리 통신 (20번 IP)
+    unicast_src_ip {{ hb_ip }}
+    unicast_peer {
+        {% for host in groups['loadbalancers'] %}
+        {% if host != inventory_hostname %}{{ hostvars[host]['hb_ip'] }}{% endif %}
+        {% endfor %}
+    }
+
+    # 20번 VIP
+    virtual_ipaddress {
+        {{ vip_address }}/24
+    }
+    
+    track_script { chk_haproxy }
+}

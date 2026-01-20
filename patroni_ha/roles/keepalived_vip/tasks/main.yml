@@ -1,0 +1,36 @@
+---
+- name: keepalived 설치
+  ansible.builtin.dnf:
+    name:
+      - keepalived
+      - firewalld
+    state: present
+
+- name: firewalld 활성화
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: VRRP 방화벽 허용(protocol vrrp)
+  ansible.posix.firewalld:
+    service: vrrp
+    permanent: true
+    state: enabled
+    immediate: true
+  ignore_errors: true
+
+- name: keepalived 설정 배포
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+
+- name: keepalived 시작/활성화
+  ansible.builtin.systemd:
+    name: keepalived
+    state: started
+    enabled: true

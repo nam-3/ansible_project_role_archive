@@ -1,0 +1,28 @@
+vrrp_script chk_haproxy {
+    script "pidof haproxy"
+    interval 2
+    weight 2
+    fall 2
+    rise 2
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface {{ db_vip_iface }}
+    virtual_router_id {{ keepalived_router_id }}
+    priority {{ keepalived_priority | default(100) }}
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass 42dbVIP!
+    }
+
+    virtual_ipaddress {
+        {{ db_vip }}/24
+    }
+
+    track_script {
+        chk_haproxy
+    }
+}
