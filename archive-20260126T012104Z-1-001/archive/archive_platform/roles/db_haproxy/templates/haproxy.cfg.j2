@@ -24,9 +24,9 @@ backend postgres_back
     http-check expect status 200
     default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
 
-    # etcd_cluster 그룹을 루프 돌면서 30번 IP(service_ip)를 넣음
+    # db_cluster 그룹을 루프 돌면서 30번 IP(service_ip)를 넣음
     # dcs 서버 제외 (이름에 'dcs' 있으면 스킵)
-    {% for host in groups['etcd_cluster'] %}
+    {% for host in groups['db_cluster'] %}
     {% if 'dcs' not in host %}
     server {{ host }} {{ hostvars[host]['service_ip'] }}:5432 maxconn 100 check port 8008
     {% endif %}
