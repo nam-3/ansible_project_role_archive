@@ -74,7 +74,7 @@ def decrypt_password(encrypted_password: str) -> str:
 logging.basicConfig(level=logging.INFO)
 db_logger = logging.getLogger("uvicorn")
 
-SQLALCHEMY_DATABASE_URL = "postgresql://admin:Soldesk1.@192.168.40.15:5432/cmp_db"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('DB_USER', 'admin')}:{os.getenv('DB_PASS', 'Soldesk1.')}@{os.getenv('DB_HOST', '192.168.20.100')}:{os.getenv('DB_PORT', '5432')}/{os.getenv('DB_NAME', 'cmp_db')}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
@@ -419,7 +419,8 @@ TEMPLATE_MAP = {
 
 # [신규] Prometheus 데이터 조회 함수
 async def query_prometheus_async(query: str):
-    PROMETHEUS_URL = "http://192.168.40.127:9090/api/v1/query"
+    monitor_host = os.getenv("MONITORING_HOST", "192.168.40.127")
+    PROMETHEUS_URL = f"http://{monitor_host}:9090/api/v1/query"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(PROMETHEUS_URL, params={'query': query}, timeout=3.0)

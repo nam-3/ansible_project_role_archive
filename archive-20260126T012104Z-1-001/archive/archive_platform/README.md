@@ -46,6 +46,31 @@ ansible-playbook -i inventory/hosts.ini playbooks/site.yml
 # Deploy only Gateway
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
 
+## Key Configurations & Recent Fixes (2026-01-26)
+
+### 1. Network & Firewall
+*   **DBLB**: Added firewalld rules for TCP 5432 (PostgreSQL) and VRRP protocol (Keepalived).
+*   **Patroni**: Added firewalld rules for TCP 5432 and 8008 (API).
+*   **Monitoring**: Confirmed ports 9090, 3000, 9100 are open.
+
+### 2. Application Configuration (`cmp/main.py`)
+*   **DB Connection**: Switched from hardcoded IP to `DB_HOST` env var (DBLB VIP `192.168.20.100`).
+*   **Monitoring**: Switched from hardcoded IP to `MONITORING_HOST` env var.
+*   **Security**: Added `ENCRYPT_KEY` and `SECRET_KEY` injection via systemd service.
+
+### 3. Troubleshooting Commands
+**If DB Cluster is stuck (Zombie State) after snapshot revert:**
+```bash
+# Force clean Etcd data and re-bootstrap cluster
+ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags db -e "force_etcd_clean=true"
+```
+
+**If Web App fails to start (502 Bad Gateway):**
+```bash
+# Re-deploy Web role to apply config updates
+ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web
+```
+
 # Deploy Web Tier (ALB + Web Servers)
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web_tier
 
