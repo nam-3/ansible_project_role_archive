@@ -51,6 +51,8 @@ ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web_tier
 
 # Deploy DB Tier (DB Cluster + DBLB)
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags db_tier
+# Etcd 데이터 초기화 + DB 클러스터 재구성 + 방화벽 적용
+ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags db -e "force_etcd_clean=true"
 
 # Deploy Frontend Components (Gateway + ALB + Web)
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags frontend

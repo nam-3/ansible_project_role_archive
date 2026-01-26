@@ -1,6 +1,14 @@
 ---
 # 1. 바이너리 파일 복사 (Ansible Server -> Target Server)
+# 1. 바이너리 파일 복사 (Ansible Server -> Target Server)
 # 참고: 바이너리 파일이 'files/' 디렉토리에 있어야 합니다.
+
+- name: Force Clean Etcd Data (If requested)
+  file:
+    path: /var/lib/etcd
+    state: absent
+  when: force_etcd_clean | default(false) | bool
+
 - name: Check if etcd binaries exist locally
   stat:
     path: "{{ role_path }}/files/{{ item }}"
