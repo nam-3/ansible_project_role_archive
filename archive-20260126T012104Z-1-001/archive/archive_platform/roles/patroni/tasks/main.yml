@@ -143,6 +143,10 @@
   become_user: root
   environment:
     PGPASSWORD: postgres_password
+  register: db_create_result
+  until: db_create_result.rc == 0
+  retries: 20
+  delay: 5
   ignore_errors: yes
   tags: [db_init]
   when: is_db_node
