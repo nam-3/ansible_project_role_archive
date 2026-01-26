@@ -61,7 +61,8 @@ ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags dblb
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web_tier
 
 # 4. Gateway (Nginx Proxy + Redis)
-ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
+# ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
+# (주의: Gateway는 현재 수동 관리 대상으로, 플레이북 실행 시 제외되어 있습니다.)
 ```
 
 ---

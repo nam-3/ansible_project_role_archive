@@ -6,3 +6,9 @@
 
 - name: Reload Firewall
   command: firewall-cmd --reload
+
+- name: Restart Archive Web
+  service:
+    name: archive-web
+    state: restarted
+    enabled: yes

@@ -12,7 +12,7 @@
 # ==============================================================================
 
 - name: Configure Network Interfaces
-  hosts: all
+  hosts: all:!gateway
   become: yes
   vars:
     # Interface Names (Modify if your VM has different names like eth1, eth2)

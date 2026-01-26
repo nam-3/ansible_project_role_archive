@@ -74,14 +74,7 @@ def decrypt_password(encrypted_password: str) -> str:
 logging.basicConfig(level=logging.INFO)
 db_logger = logging.getLogger("uvicorn")
 
-# DB Configuration (DBLB VIP)
-DB_HOST = os.getenv("DB_HOST", "192.168.20.100")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_USER = os.getenv("DB_USER", "admin")
-DB_PASS = os.getenv("DB_PASS", "Soldesk1.")
-DB_NAME = os.getenv("DB_NAME", "cmp_db")
-
-SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+SQLALCHEMY_DATABASE_URL = "postgresql://admin:Soldesk1.@192.168.40.15:5432/cmp_db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 
@@ -161,7 +154,7 @@ class ConnectionManager:
     def __init__(self):
         # { project_id: [websocket_list] }
         self.active_connections: dict[int, list[WebSocket]] = {}
-        self.redis_host = os.getenv("REDIS_HOST", "172.16.6.77")
+        self.redis_host = "172.16.6.77"
         self.redis = redis.from_url(f"redis://{self.redis_host}", decode_responses=True)
         # 프로젝트별 구독 Task를 추적합니다.
         self.listener_tasks: dict[int, asyncio.Task] = {}
@@ -426,8 +419,7 @@ TEMPLATE_MAP = {
 
 # [신규] Prometheus 데이터 조회 함수
 async def query_prometheus_async(query: str):
-    MONITORING_HOST = os.getenv("MONITORING_HOST", "192.168.40.127")
-    PROMETHEUS_URL = f"http://{MONITORING_HOST}:9090/api/v1/query"
+    PROMETHEUS_URL = "http://192.168.40.127:9090/api/v1/query"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(PROMETHEUS_URL, params={'query': query}, timeout=3.0)

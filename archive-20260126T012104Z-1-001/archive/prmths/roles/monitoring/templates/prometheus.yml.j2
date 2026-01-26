@@ -12,5 +12,5 @@ scrape_configs:
       - targets:
         # monitoring_clients 그룹에 있는 모든 호스트를 자동으로 루프
 {% for host in groups['monitoring_clients'] %}
-        - "{{ host }}:{{ node_exporter_port }}"
+        - "{{ hostvars[host].ansible_host | default(host) }}:{{ node_exporter_port }}"
 {% endfor %}

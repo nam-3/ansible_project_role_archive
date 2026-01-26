@@ -1,8 +1,0 @@
----
-- name: ETCD 3-Node Cluster Setup (Binary Install)
-  hosts: etcd_cluster
-  become: yes
-  gather_facts: yes
-  
-  roles:
-    - role: roles/etcd
