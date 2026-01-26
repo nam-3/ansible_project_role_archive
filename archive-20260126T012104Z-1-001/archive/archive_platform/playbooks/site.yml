@@ -41,15 +41,26 @@
   roles:
     - db_haproxy
 
-- name: 4. Deploy Database Cluster (Etcd + Patroni)
+- name: 4. Deploy Etcd Cluster (Cleanup & Setup)
   hosts: db_cluster
   tags:
     - db
+    - etcd
     - db_cluster
     - backend
     - all
   roles:
     - etcd_db
+
+- name: 5. Deploy Patroni HA Cluster
+  hosts: db_cluster
+  tags:
+    - db
+    - patroni
+    - db_cluster
+    - backend
+    - all
+  roles:
     - patroni
 
 - name: 5. Deploy Web Servers
