@@ -1,0 +1,13 @@
+
+
+# 2. 레포지토리 및 방화벽 설정
+- import_tasks: repo.yml
+  tags: [install]
+
+# 3. 패키지 설치
+- import_tasks: install.yml
+  tags: [install]
+
+# 4. 설정 파일 구성
+- import_tasks: configure.yml
+  tags: [config]
