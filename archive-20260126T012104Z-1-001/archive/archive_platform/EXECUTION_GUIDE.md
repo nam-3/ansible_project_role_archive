@@ -11,15 +11,15 @@ ansible --version
 ### 2. SSH 키 설정
 ```bash
 # Control Node에서 모든 타겟 서버로 SSH 키 복사
-ssh-copy-id root@192.168.40.1   # Gateway (Gateway-Mgmt)
-ssh-copy-id root@192.168.40.20  # ALB
-ssh-copy-id root@192.168.40.30  # Web1
-ssh-copy-id root@192.168.40.40  # Web2
-ssh-copy-id root@192.168.40.50  # DBLB1
-ssh-copy-id root@192.168.40.51  # DBLB2
-ssh-copy-id root@192.168.40.52  # DCS
-ssh-copy-id root@192.168.40.60  # DB1
-ssh-copy-id root@192.168.40.70  # DB2
+ssh-copy-id ansible@192.168.40.1   # Gateway (Gateway-Mgmt)
+ssh-copy-id ansible@192.168.40.20  # ALB
+ssh-copy-id ansible@192.168.40.30  # Web1
+ssh-copy-id ansible@192.168.40.40  # Web2
+ssh-copy-id ansible@192.168.40.50  # DBLB1
+ssh-copy-id ansible@192.168.40.51  # DBLB2
+ssh-copy-id ansible@192.168.40.52  # DCS
+ssh-copy-id ansible@192.168.40.60  # DB1
+ssh-copy-id ansible@192.168.40.70  # DB2
 ```
 
 ### 3. 연결 테스트
@@ -61,15 +61,14 @@ ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags dblb
 ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web_tier
 
 # 4. Gateway (Nginx Proxy + Redis)
-# ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
-# (주의: Gateway는 현재 수동 관리 대상으로, 플레이북 실행 시 제외되어 있습니다.)
+ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
 ```
 
 ---
 
 ## 검증 방법
 
-### 1. CMP 애플리케이션 접속
+### 1. CMP 애플리케이션
 브라우저를 통해 Gateway 외부 IP로 접속하여 CMP 대시보드를 확인합니다.
 *   **URL**: `http://172.16.6.77/`
 *   **확인 사항**:
@@ -77,7 +76,37 @@ ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags web_tier
     *   DB 연결 상태 (우측 상단 또는 상태 페이지)
     *   모니터링 데이터 표시 여부
 
-### 2. API 헬스 체크
+### 2. 서비스 접속 테스트 (ALB & Web)
+**실행 위치**: Ansible Control Node, Gateway, 또는 내부망(40번 대역)의 임의의 VM
+
+10번 대역(서비스망)으로의 라우팅이 설정된 곳에서 ALB VIP로 접속을 시도합니다.
+```bash
+# ALB 접속 (서비스 VIP)
+curl -I http://192.168.10.20
+# (HTTP 200 OK 또는 404가 뜨면 정상)
+```
+
+### 3. DB 연동 확인 (Web -> DB)
+**실행 위치**: Web 서버 (`web1` / 192.168.40.30) **내부**
+
+Web 서버가 DBLB를 통해 실제 DB 데이터를 읽어오는지 확인합니다.
+
+1. **Web 서버로 접속** (Ansible Control Node에서 실행)
+   ```bash
+   ssh ansible@192.168.40.30
+   ```
+
+2. **로그인 API 호출** (Web 서버 내부 쉘에서 실행)
+   ```bash
+   # 로컬 8000번 포트로 로그인 요청 전송
+   curl -X POST "http://127.0.0.1:8000/api/login" \
+        -H "Content-Type: application/json" \
+        -d '{"user_id": "admin", "password": "1234"}'
+   
+   # 성공 시: {"status":"success", "message":"Login Approved"} 확인
+   ```
+
+### 4. API 헬스 체크
 ```bash
 # Gateway를 통한 API 상태 확인
 curl http://172.16.6.77/health
@@ -107,7 +136,7 @@ ansible all -m shell -a "nmcli dev status"
 ### 애플리케이션 실행 오류 (Web)
 Web 서버(`web1`, `web2`)에서 서비스 로그를 확인합니다.
 ```bash
-ssh root@192.168.40.30
+ssh ansible@192.168.40.30
 sudo journalctl -u archive-web -f
 # 또는 /opt/cmp_app/ 로그 확인
 ```

@@ -154,7 +154,7 @@ class ConnectionManager:
     def __init__(self):
         # { project_id: [websocket_list] }
         self.active_connections: dict[int, list[WebSocket]] = {}
-        #self.redis_host = os.getenv("REDIS_HOST", "127.0.0.1")
+        self.redis_host = os.getenv("REDIS_HOST", "127.0.0.1")
         self.redis = redis.from_url(f"redis://{self.redis_host}", decode_responses=True)
         # 프로젝트별 구독 Task를 추적합니다.
         self.listener_tasks: dict[int, asyncio.Task] = {}

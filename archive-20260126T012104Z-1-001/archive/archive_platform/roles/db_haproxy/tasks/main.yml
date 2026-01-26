@@ -44,3 +44,19 @@
 - name: Start Services
   service: name={{ item }} state=started enabled=yes
   loop: [haproxy, keepalived]
+
+- name: Open firewall ports for HAProxy (DBLB)
+  firewalld:
+    port: 5432/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes
+
+- name: Allow VRRP Protocol (for Keepalived)
+  firewalld:
+    rich_rule: rule protocol value="vrrp" accept
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes

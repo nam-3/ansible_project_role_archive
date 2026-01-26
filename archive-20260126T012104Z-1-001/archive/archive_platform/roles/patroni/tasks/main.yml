@@ -123,3 +123,15 @@
     state: started
     enabled: yes
   when: is_db_node
+
+- name: Open firewall ports for PostgreSQL and Patroni
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - 5432/tcp
+    - 8008/tcp
+  when: is_db_node
+  ignore_errors: yes
