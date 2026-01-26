@@ -12,7 +12,7 @@ Environment="DB_USER=admin"
 Environment="DB_PASS=Soldesk1."
 Environment="DB_NAME=cmp_db"
 Environment="MONITORING_HOST={{ hostvars[groups['monitoring'][0]]['ansible_host'] }}"
-Environment="REDIS_HOST={{ hostvars[groups['gateway'][0]]['external_ip'] | default(hostvars[groups['gateway'][0]]['ansible_host']) }}"
+Environment="REDIS_HOST=127.0.0.1"
 ExecStart=/usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 Restart=always
 

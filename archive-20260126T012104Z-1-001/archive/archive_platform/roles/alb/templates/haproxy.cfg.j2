@@ -24,10 +24,11 @@ frontend web_frontend
 # Backend: Web Servers
 backend web_backend
     balance roundrobin
+    cookie SERVERID insert indirect nocache
     option httpchk GET /
     http-check expect status 200
     {% for host in groups['web'] %}
-    server {{ host }} {{ hostvars[host]['service_ip'] }}:80 check inter 3s fall 3 rise 2
+    server {{ host }} {{ hostvars[host]['service_ip'] }}:80 check inter 3s fall 3 rise 2 cookie {{ host }}
     {% endfor %}
 
 # Stats Page (Optional)
