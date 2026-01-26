@@ -134,4 +134,15 @@
     - 5432/tcp
     - 8008/tcp
   when: is_db_node
+  when: is_db_node
   ignore_errors: yes
+
+- name: Create Application Database (cmp_db)
+  shell: |
+    /usr/pgsql-{{ pg_version }}/bin/psql -U postgres -h 127.0.0.1 -c "CREATE DATABASE cmp_db OWNER admin;" || true
+  become_user: root
+  environment:
+    PGPASSWORD: postgres_password
+  ignore_errors: yes
+  tags: [db_init]
+  when: is_db_node

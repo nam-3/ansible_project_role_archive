@@ -2,12 +2,9 @@
 # ---------------------------------------------------------
 # 1. 서비스 중지 (순서 중요: App -> DB -> DCS)
 # ---------------------------------------------------------
-- name: Stop Services if running
-  service:
-    name: "{{ item }}"
-    state: stopped
-    enabled: no
-  ignore_errors: yes
+- name: Stop Services if running (Silent)
+  shell: "systemctl stop {{ item }} || true"
+  changed_when: false
   with_items:
     - haproxy
     - keepalived

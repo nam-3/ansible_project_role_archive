@@ -28,6 +28,13 @@ bootstrap:
   initdb:
   - encoding: UTF8
   - data-checksums
+  
+  users:
+    - name: admin
+      password: Soldesk1.
+      options:
+        - createrole
+        - createdb
 
 postgresql:
   listen: {{ service_ip }}:5432
