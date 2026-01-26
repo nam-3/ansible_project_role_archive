@@ -1,0 +1,82 @@
+---
+# Web Role: Nginx Web Server
+- name: Install Nginx and Python Dependencies
+  dnf:
+    name:
+      - nginx
+      - python3-pip
+      - python3-devel
+      - ansible-core
+    state: present
+
+- name: Install Python Libraries for CMP App
+  pip:
+    name:
+      - fastapi
+      - uvicorn
+      - sqlalchemy
+      - psycopg2-binary
+      - prometheus-client
+      - paramiko
+      - httpx
+      - redis
+      - cryptography
+      - python-jose
+    state: present
+
+- name: Create Application Directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/cmp_app
+    - /opt/h-cmp
+
+- name: Deploy CMP Application Code
+  copy:
+    src: ../../../cmp/
+    dest: /opt/cmp_app/
+    mode: '0755'
+  notify: Restart Archive Web
+
+- name: Deploy Orchestration Playbooks
+  copy:
+    src: ../../../playbooks/
+    dest: /opt/h-cmp/
+    mode: '0644'
+
+- name: Deploy Systemd Service for CMP App
+  template:
+    src: archive-web.service.j2
+    dest: /etc/systemd/system/archive-web.service
+  notify: Restart Archive Web
+
+
+- name: Deploy Default Web Page
+  template:
+    src: index.html.j2
+    dest: /usr/share/nginx/html/index.html
+  notify: Restart Nginx
+
+- name: Deploy Nginx Configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/web.conf
+  notify: Restart Nginx
+
+# Note: Application deployment (main.py, templates) is in separate cmp_app directory
+# This is example structure only - actual deployment would reference cmp_app
+
+- name: Start and Enable Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Configure Firewall for HTTP
+  firewalld:
+    service: http
+    permanent: yes
+    state: enabled
+  notify: Reload Firewall

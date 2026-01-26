@@ -1,0 +1,47 @@
+---
+# Gateway Role: Nginx Reverse Proxy (External -> Internal ALB)
+- name: Install Nginx
+  dnf:
+    name: nginx
+    state: present
+
+- name: Enable IP Forwarding (for routing between networks)
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    sysctl_set: yes
+
+- name: Install Redis
+  dnf:
+    name: redis
+    state: present
+
+- name: Start and Enable Redis
+  service:
+    name: redis
+    state: started
+    enabled: yes
+
+- name: Deploy Nginx Proxy Configuration
+  template:
+    src: nginx_proxy.conf.j2
+    dest: /etc/nginx/conf.d/gateway_proxy.conf
+  notify: Restart Nginx
+
+- name: Start and Enable Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Configure Firewall for HTTP/HTTPS
+  firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    state: enabled
+  loop:
+    - http
+    - https
+    - redis
+  notify: Reload Firewall

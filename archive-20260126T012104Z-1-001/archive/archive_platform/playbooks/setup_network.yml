@@ -1,0 +1,76 @@
+---
+# ==============================================================================
+# Network Configuration Playbook
+# ------------------------------------------------------------------------------
+# Configures additional network interfaces (ens224, ens256) based on
+# inventory variables (service_ip, hb_ip, external_ip).
+#
+# Assumptions:
+#   - NIC #2 (ens224): Used for Service Network (VLAN 10/30) OR External
+#   - NIC #3 (ens256): Used for Heartbeat Network (VLAN 20)
+#   - Default Prefix: /24 (255.255.255.0)
+# ==============================================================================
+
+- name: Configure Network Interfaces
+  hosts: all
+  become: yes
+  vars:
+    # Interface Names (Modify if your VM has different names like eth1, eth2)
+    svc_iface: "ens224"
+    hb_iface: "ens256"
+    
+    # Common Netmask
+    default_prefix: "24"
+
+  tasks:
+    - name: Install NetworkManager-tui (nmcli)
+      dnf:
+        name: NetworkManager-tui
+        state: present
+
+    # --------------------------------------------------------------------------
+    # 1. Configure Service IP / External IP (NIC #2 - ens224)
+    # --------------------------------------------------------------------------
+    
+    # Case A: External IP (Gateway) - SKIPPED (Manually Configured)
+    # - name: "Configure NIC #2 ({{ svc_iface }}) - External Network"
+    #   nmcli:
+    #     conn_name: "{{ svc_iface }}"
+    #     ifname: "{{ svc_iface }}"
+    #     type: ethernet
+    #     ip4: "{{ external_ip }}/{{ default_prefix }}"
+    #     state: present
+    #   when: external_ip is defined
+
+    # Case B: Service IP (Web, ALB, DB, DBLB)
+    - name: "Configure NIC #2 ({{ svc_iface }}) - Service Network"
+      nmcli:
+        conn_name: "{{ svc_iface }}"
+        ifname: "{{ svc_iface }}"
+        type: ethernet
+        ip4: "{{ service_ip }}/{{ default_prefix }}"
+        state: present
+      when: service_ip is defined
+
+    # --------------------------------------------------------------------------
+    # 2. Configure Heartbeat IP (NIC #3 - ens256)
+    # --------------------------------------------------------------------------
+    
+    # Case C: Heartbeat IP (DBLB only usually)
+    - name: "Configure NIC #3 ({{ hb_iface }}) - Heartbeat Network"
+      nmcli:
+        conn_name: "{{ hb_iface }}"
+        ifname: "{{ hb_iface }}"
+        type: ethernet
+        ip4: "{{ hb_ip }}/{{ default_prefix }}"
+        state: present
+      when: hb_ip is defined
+
+    # --------------------------------------------------------------------------
+    # 3. Apply Changes
+    # --------------------------------------------------------------------------
+    
+    - name: Restart NetworkManager to apply changes
+      service:
+        name: NetworkManager
+        state: restarted

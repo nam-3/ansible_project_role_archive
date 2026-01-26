@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+paramiko
+httpx
+redis
+cryptography
+python-jose
+prometheus-client
