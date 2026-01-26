@@ -1,0 +1,32 @@
+---
+# 1) etcd(DCS) 구성
+- name: "DCS(etcd) 클러스터 구성"
+  hosts: etcd
+  become: true
+  roles:
+    - role: etcd_cluster
+      vars:
+        etcd_group_name: "etcd"      # 인벤토리 그룹명
+        etcd_force_clean_data: true  # 첫 구성만 true, 이후 false 권장
+
+# 2) DB(Postgres) + Patroni 구성
+- name: "PostgreSQL + Patroni 구성"
+  hosts: patroni_db
+  become: true
+  roles:
+    - patroni_postgres
+
+# 3) DBLB HAProxy 구성
+- name: "DBLB HAProxy 구성"
+  hosts: dblb
+  become: true
+  roles:
+    - haproxy_patroni
+
+# 4) DBLB VIP(keepalived) 구성
+- name: "DBLB VIP(keepalived) 구성"
+  hosts: dblb
+  become: true
+  roles:
+    - keepalived_vip
+

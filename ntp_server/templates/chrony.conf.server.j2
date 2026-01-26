@@ -1,0 +1,23 @@
+# /etc/chrony.conf (NTP Server)
+
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+
+logdir /var/log/chrony
+
+{% for s in ntp_upstream_servers %}
+pool {{ s }} iburst
+{% endfor %}
+
+# 내부 클라이언트 허용
+allow {{ ntp_allow_subnet }}
+
+# (옵션) 상위 NTP가 없더라도 서버가 응답하게 하고 싶으면 아래 주석 해제
+# local stratum 10
+
+# 기본 권장 설정
+cmdallow 127.0.0.1
+keyfile /etc/chrony.keys
+leapsectz right/UTC
+

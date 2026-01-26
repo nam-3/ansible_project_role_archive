@@ -1,0 +1,85 @@
+---
+- name: Cleanup Prometheus and Grafana
+  hosts: my_servers
+  become: yes
+  vars:
+    # 삭제할 포트 목록
+    prom_port: "9090/tcp"
+    graf_port: "3000/tcp"
+
+  tasks:
+    # -------------------------------------------------------
+    # 1. Prometheus 제거 (바이너리 설치 가정)
+    # -------------------------------------------------------
+    - name: Stop and disable Prometheus service
+      service:
+        name: prometheus
+        state: stopped
+        enabled: no
+      ignore_errors: yes # 서비스가 이미 없어도 에러 무시
+
+    - name: Remove Prometheus Systemd service file
+      file:
+        path: /etc/systemd/system/prometheus.service
+        state: absent
+      notify: daemon-reload
+
+    - name: Remove Prometheus binaries and directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/local/bin/prometheus
+        - /usr/local/bin/promtool
+        - /etc/prometheus          # 설정 파일
+        - /var/lib/prometheus      # TSDB 데이터 (주의!)
+
+    - name: Remove Prometheus user
+      user:
+        name: prometheus
+        state: absent
+        remove: yes # 홈 디렉터리도 삭제
+
+    # -------------------------------------------------------
+    # 2. Grafana 제거 (DNF/RPM 설치 가정)
+    # -------------------------------------------------------
+    - name: Stop and disable Grafana service
+      service:
+        name: grafana-server
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Uninstall Grafana package
+      dnf:
+        name: grafana
+        state: absent
+
+    - name: Remove Grafana leftover directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/grafana             # 설정 파일 잔여물
+        - /var/lib/grafana         # 대시보드/플러그인 데이터 (주의!)
+        - /var/log/grafana         # 로그 파일
+        - /etc/yum.repos.d/grafana.repo # 레포지토리 파일
+
+    # -------------------------------------------------------
+    # 3. 방화벽 및 마무리 정리
+    # -------------------------------------------------------
+    - name: Close Firewall ports (9090, 3000)
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: disabled
+        immediate: yes
+      loop:
+        - "{{ prom_port }}"
+        - "{{ graf_port }}"
+      ignore_errors: yes # firewalld가 꺼져있거나 없으면 무시
+
+  handlers:
+    - name: daemon-reload
+      systemd:
+        daemon_reload: yes

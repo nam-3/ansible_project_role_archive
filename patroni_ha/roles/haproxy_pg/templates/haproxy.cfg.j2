@@ -1,0 +1,29 @@
+global
+    log /dev/log local0
+    maxconn 4096
+    daemon
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    timeout connect 5s
+    timeout client  1m
+    timeout server  1m
+
+# DB 접속(쓰기/읽기 모두) — Patroni Primary로 라우팅
+listen pgsql_primary
+    bind *:{{ haproxy_listen_port }}
+    mode tcp
+    option tcp-check
+
+    # Patroni REST(8008)로 Primary 판별
+    # - Primary면 /primary 가 200을 반환
+    # - Replica면 503 또는 200이 아닌 응답
+    tcp-check connect
+    tcp-check send-binary "GET /primary HTTP/1.0\r\n\r\n"
+    tcp-check expect string "200"
+
+{% for h in groups['db'] %}
+    server {{ h }} {{ hostvars[h].ansible_host }}:{{ patroni_pg_port }} check port {{ patroni_rest_port }} inter 2s fall 3 rise 2
+{% endfor %}

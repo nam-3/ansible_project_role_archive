@@ -1,0 +1,52 @@
+---
+# --- Firewall Setup ---
+- name: Ensure firewalld is active
+  service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Open firewall ports for Server
+  firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "{{ prometheus_port }}/tcp"
+    - "{{ grafana_port }}/tcp"
+    - "{{ loki_port }}/tcp"
+  when: inventory_hostname in groups['monitoring_server']
+
+- name: Open firewall ports for Clients
+  firewalld:
+    port: "{{ node_exporter_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  # 모든 호스트는 node_exporter 포트가 열려야 함
+  
+# --- Repo Setup ---
+- name: Add Grafana Repo (Includes Loki, Promtail)
+  copy:
+    dest: /etc/yum.repos.d/grafana.repo
+    content: |
+      [grafana]
+      name=grafana
+      baseurl=https://rpm.grafana.com
+      repo_gpgcheck=1
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://rpm.grafana.com/gpg.key
+      sslverify=1
+      sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+    mode: '0644'
+
+# Prometheus는 CentOS 9 AppStream이나 EPEL에 포함되어 있는 경우가 많으나,
+# script 방식 대신 repo 파일을 직접 생성하는 것이 더 안전합니다.
+# 여기서는 dnf 명령어로 처리 가능한 packagecloud repo를 등록합니다.
+- name: Add Prometheus Repo script
+  shell: |
+    curl -s https://packagecloud.io/install/repositories/prometheus-rpm/release/script.rpm.sh | bash
+  args:
+    creates: /etc/yum.repos.d/prometheus-rpm_release.repo

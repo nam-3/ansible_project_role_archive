@@ -1,0 +1,70 @@
+---
+# --- Common Config (Promtail, Node Exporter) ---
+
+- name: Configure Promtail
+  template:
+    src: promtail-config.yml.j2
+    dest: /etc/promtail/config.yml
+    backup: yes
+  notify: restart promtail
+
+- name: Set ACL for Promtail to read system logs
+  acl:
+    path: /var/log/messages
+    entity: promtail
+    etype: user
+    permissions: r
+    state: present
+
+# --- Server Config (Prometheus, Loki) ---
+
+- name: Configure Prometheus
+  template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    backup: yes
+  when: inventory_hostname in groups['monitoring_server']
+  notify: restart prometheus
+
+- name: Create Loki directories
+  file:
+    path: "/var/lib/loki/{{ item }}"
+    state: directory
+    owner: loki
+    group: loki
+    mode: '0755'
+    recurse: yes
+  loop:
+    - chunks
+    - rules
+  when: inventory_hostname in groups['monitoring_server']
+
+- name: Configure Loki
+  # replace 모듈 대신 template을 사용하여 관리하는 것을 강력 권장합니다.
+  template:
+    src: loki-config.yml.j2
+    dest: /etc/loki/config.yml
+    backup: yes
+  when: inventory_hostname in groups['monitoring_server']
+  notify: restart loki
+
+# --- Service Start & Enable ---
+- name: Start and Enable Services (Server)
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - prometheus
+    - grafana-server
+    - loki
+  when: inventory_hostname in groups['monitoring_server']
+
+- name: Start and Enable Services (Common)
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - node_exporter
+    - promtail

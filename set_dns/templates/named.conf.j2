@@ -1,0 +1,48 @@
+options {
+    listen-on port 53 { any; };
+    listen-on-v6 port 53 { any; };
+
+    directory       "/var/named";
+    allow-query     { any; };
+    recursion       yes;
+
+    dnssec-validation no;
+
+    managed-keys-directory "/var/named/dynamic";
+    pid-file "/run/named/named.pid";
+    session-keyfile "/run/named/session.key";
+};
+
+logging {
+    channel default_debug {
+        file "data/named.run";
+        severity dynamic;
+    };
+};
+
+# Root hints (재귀가 필요하면 사실상 필수)
+zone "." IN {
+    type hint;
+    file "named.ca";
+};
+
+# 기본 로컬 존들 유지
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";
+
+# ===== Forward zone =====
+zone "{{ dns_forward_zone }}" IN {
+    type master;
+    file "{{ dns_forward_zone_file }}";
+    allow-update { none; };
+};
+
+# ===== Reverse zones (/24 자동 생성) =====
+{% for rz in (reverse_zones | default([])) %}
+zone "{{ rz.zone }}" IN {
+    type master;
+    file "{{ rz.file }}";
+    allow-update { none; };
+};
+{% endfor %}
+

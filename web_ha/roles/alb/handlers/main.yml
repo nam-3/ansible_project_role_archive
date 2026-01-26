@@ -1,0 +1,11 @@
+---
+- name: "haproxy 검증"
+  ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+  changed_when: false
+
+- name: "haproxy 검증 후 재시작"
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted
+  listen: "haproxy 검증 후 재시작"
+

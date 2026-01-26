@@ -1,0 +1,49 @@
+---
+- name: "httpd 설치"
+  ansible.builtin.dnf:
+    name: httpd
+    state: present
+
+- name: "firewalld 설치"
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: "firewalld 활성화/시작"
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: "웹 서버 방화벽에서 HTTP 허용"
+  ansible.builtin.command: firewall-cmd --permanent --add-service=http
+  changed_when: false
+
+- name: "방화벽 반영"
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: false
+
+- name: "웹 인덱스 페이지 배포(호스트명 표시)"
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ web_index_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: "httpd 재시작"
+
+- name: "헬스체크 파일 생성(/health)"
+  ansible.builtin.copy:
+    dest: "{{ web_health_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "OK\n"
+  notify: "httpd 재시작"
+
+- name: "httpd 서비스 활성화/시작"
+  ansible.builtin.service:
+    name: httpd
+    state: started
+    enabled: true
+

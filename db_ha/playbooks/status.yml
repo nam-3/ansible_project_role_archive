@@ -1,0 +1,53 @@
+---
+- name: "서비스 상태 점검"
+  hosts: all
+  become: true
+  tasks:
+    - name: "호스트/네트워크 기본 확인"
+      ansible.builtin.shell: |
+        echo "=== $(hostname) ==="
+        ip -br a
+        echo
+      changed_when: false
+
+- name: "etcd 포트 확인"
+  hosts: etcd
+  become: true
+  tasks:
+    - name: "2379/2380 리슨 확인"
+      ansible.builtin.shell: |
+        hostname
+        ss -lntp | egrep ':2379|:2380' || true
+        echo
+      changed_when: false
+
+- name: "patroni/postgres 포트 확인"
+  hosts: patroni_db
+  become: true
+  tasks:
+    - name: "8008/5432 리슨 확인"
+      ansible.builtin.shell: |
+        hostname
+        ss -lntp | egrep ':8008|:5432' || true
+        systemctl is-active patroni || true
+        echo
+      changed_when: false
+
+    - name: "로컬 Patroni /primary 응답 확인"
+      ansible.builtin.shell: |
+        hostname
+        curl -s -o /dev/null -w "LOCAL /primary -> %{http_code}\n" http://127.0.0.1:8008/primary || true
+        echo
+      changed_when: false
+
+- name: "VIP 보유자 확인"
+  hosts: dblb
+  become: true
+  tasks:
+    - name: "VIP가 ens192에 붙었는지 확인"
+      ansible.builtin.shell: |
+        hostname
+        ip -br a show {{ vip_iface }} | grep {{ vip_ip }} || true
+        echo
+      changed_when: false
+

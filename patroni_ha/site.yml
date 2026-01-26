@@ -1,0 +1,23 @@
+---
+- name: DCS(etcd) 구성
+  hosts: dcs
+  gather_facts: true
+  roles:
+    - role: etcd
+      tags: [etcd]
+
+- name: DB(Patroni + PostgreSQL) 구성
+  hosts: db
+  gather_facts: true
+  roles:
+    - role: patroni_postgres
+      tags: [patroni]
+
+- name: DB LB(HAProxy + Keepalived VIP) 구성
+  hosts: dblb
+  gather_facts: true
+  roles:
+    - role: haproxy_pg
+      tags: [haproxy]
+    - role: keepalived_vip
+      tags: [keepalived]

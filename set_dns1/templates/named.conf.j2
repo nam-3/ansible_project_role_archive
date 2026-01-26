@@ -1,0 +1,110 @@
+// ============================================================================
+// /etc/named.conf  (BIND 설정 파일)
+// - 이 파일은 Ansible template로 배포됨
+// - 핵심: forward zone(example.com) + reverse zone(/24 단위) 선언
+// - allow-transfer: AXFR(Zone Transfer) 허용 IP 제한
+// ============================================================================
+
+options {
+    // DNS 서비스가 53 포트에서 어떤 IP로 listen 할지
+    listen-on port 53 { any; };
+    listen-on-v6 port 53 { any; };
+
+    // 존 파일들이 있는 디렉터리 (CentOS/RHEL 기본)
+    directory "/var/named";
+
+    // 질의(lookup)를 누구에게 허용할지
+    // 내부망에서만 쓰면 { 192.168.40.0/24; } 처럼 줄이는 게 더 안전함
+    allow-query { any; };
+
+    // recursion(재귀 질의) 허용 여부
+    // - yes면: 클라이언트가 외부 도메인(google.com 등)도 이 DNS로 물어볼 수 있음(캐싱 DNS 역할)
+    // - 내부 전용 authoritative DNS만 할 거면 no를 권장
+    recursion {{ 'yes' if (dns_recursion | default(true)) else 'no' }};
+
+    // forwarders: recursion이 켜져 있을 때, 외부 질의를 대신 물어볼 상위 DNS 서버
+    // 예) 사내 DNS 또는 8.8.8.8 같은 공개 DNS
+    {% if dns_forwarders is defined and (dns_forwarders | length > 0) %}
+    forwarders {
+        {% for f in dns_forwarders %}
+        {{ f }};
+        {% endfor %}
+    };
+    {% endif %}
+
+    // 실습/내부망이면 DNSSEC 검증을 꺼두는 편이 편함
+    dnssec-validation no;
+
+    // 파일 경로 (디스트로 기본 경로)
+    managed-keys-directory "/var/named/dynamic";
+    pid-file "/run/named/named.pid";
+    session-keyfile "/run/named/session.key";
+};
+
+// (선택) 로깅
+logging {
+    channel default_debug {
+        file "data/named.run";
+        severity dynamic;
+    };
+};
+
+// 루트 힌트(인터넷 쿼리용) - recursion 쓰면 필요할 수 있음
+zone "." IN {
+    type hint;
+    file "named.ca";
+};
+
+// 기본 포함 파일들 (RHEL/CentOS 기본)
+include "/etc/named.rfc1912.zones";
+include "/etc/named.root.key";
+
+
+// ============================================================================
+// Forward Zone 선언 (예: example.com)
+// ============================================================================
+zone "{{ dns_forward_zone }}" IN {
+    type master;                 // 이 서버가 master(authoritative)라는 뜻
+    file "{{ dns_forward_zone_file }}"; // /var/named/db.example.com 같은 실제 zone 파일
+
+    allow-update { none; };      // DDNS 업데이트 막기(수동/Ansible로만 관리)
+
+    // ------------------------------------------------------------------------
+    // allow-transfer: Zone Transfer(AXFR/IXFR) 허용 대상
+    // - AXFR은 "존의 전체 레코드 덤프"를 그대로 가져갈 수 있음
+    // - 동적 inventory를 DNS 기반으로 만들려면 컨트롤 노드가 AXFR을 해야 함
+    // - 보안상 아무나 가져가면 안 되므로 특정 IP만 화이트리스트로 허용
+    // ------------------------------------------------------------------------
+    {% if dns_allow_transfer is defined and (dns_allow_transfer | length > 0) %}
+    allow-transfer {
+        {% for ip in dns_allow_transfer %}
+        {{ ip }};                // 예: 192.168.40.10(Ansible 컨트롤 노드)
+        {% endfor %}
+    };
+    {% endif %}
+};
+
+
+// ============================================================================
+// Reverse Zone 선언 (/24 단위 자동 생성)
+// - reverse_zones는 Ansible에서 만들어서 template에 주입하는 변수
+// - 예: 192.168.40.0/24 -> zone "40.168.192.in-addr.arpa", file "db.192.168.40"
+// ============================================================================
+{% for rz in reverse_zones | default([]) %}
+zone "{{ rz.zone }}" IN {
+    type master;
+    file "{{ rz.file }}";
+    allow-update { none; };
+
+    // reverse zone도 AXFR이 필요하면 여기에도 allow-transfer를 넣을 수 있음
+    // (PTR 기반 inventory까지 하려면 reverse를 AXFR로 가져오기도 함)
+    {% if dns_allow_transfer is defined and (dns_allow_transfer | length > 0) %}
+    allow-transfer {
+        {% for ip in dns_allow_transfer %}
+        {{ ip }};
+        {% endfor %}
+    };
+    {% endif %}
+};
+{% endfor %}
+

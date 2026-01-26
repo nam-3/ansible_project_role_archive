@@ -1,0 +1,10 @@
+---
+- name: systemd daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: etcd 재시작
+  ansible.builtin.systemd:
+    name: etcd
+    state: restarted
+

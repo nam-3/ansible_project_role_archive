@@ -1,0 +1,10 @@
+---
+# 포트 정의
+prometheus_port: 9090
+grafana_port: 3000
+loki_port: 3100
+node_exporter_port: 9100
+
+# 모니터링 서버 주소 (Promtail이 로그를 보낼 곳)
+# inventory의 monitoring_server 그룹 첫 번째 호스트를 사용하거나 직접 지정
+monitor_server_host: "{{ groups['monitoring_server'][0] }}"

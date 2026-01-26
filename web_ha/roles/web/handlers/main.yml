@@ -1,0 +1,6 @@
+---
+- name: "httpd 재시작"
+  ansible.builtin.service:
+    name: httpd
+    state: restarted
+

@@ -1,0 +1,53 @@
+# ===== 스캔 범위 =====
+scan_subnet_prefix: "192.168.40."
+scan_start: 10
+scan_end: 250
+
+# ===== SSH 접속 =====
+scan_ssh_user: "ansible"
+scan_ssh_port: 22
+# scan_ssh_private_key_file: "~/.ssh/id_rsa"   # 필요하면 켜기
+
+# ===== DNS 설정 =====
+dns_domain: "example.com"
+
+# DNS 서버(클라이언트가 바라볼 NS)
+dns_server_ip: "192.168.40.10"
+dns_server_name: "dns1"
+
+# Forward zone
+dns_forward_zone: "{{ dns_domain }}"
+dns_forward_zone_file: "db.{{ dns_domain }}"
+
+# ===== 레코드 정책 =====
+# ✅ 접속은 항상 이 대역 IP로만(= hostname.example.com A 1개)
+dns_access_prefix: "192.168.40."
+
+# ✅ 조회용 이름 suffix (hostname-all.example.com)
+dns_all_suffix: "-all"
+dns_publish_all_record: true
+
+# 별칭 생성(보여주기용): hostname-ens192-1 같은 형태로 만들기
+dns_add_iface_alias: true
+# iface 기반 alias가 실패하면 ipindex로 fallback
+dns_alias_style: "iface"     # iface | ipindex
+
+# ===== DNS 서버 옵션 =====
+dns_recursion: true
+dns_forwarders: []           # 예: ["8.8.8.8", "1.1.1.1"]
+
+# AXFR(Zone Transfer) 허용할 클라이언트 목록
+# 보통 Ansible 컨트롤 노드 IP만 넣음(아무나 허용하면 내부 DNS 레코드가 다 털림)
+dns_allow_transfer:
+  - "192.168.40.10"   # 예: ansible 컨트롤 노드 IP
+  # - "192.168.40.11" # 필요하면 추가
+
+# ===== Client DNS 적용 (NetworkManager) =====
+client_set_nm_dns: true
+client_install_bind_utils: true
+client_nm_reapply_first: true      # reapply 먼저 시도
+client_nm_up_timeout_sec: 15       # con up은 timeout 걸고 빠져나오기
+
+# nmcli 없을 때 /etc/resolv.conf 직접 쓰는 fallback 허용
+client_fallback_resolvconf: true
+

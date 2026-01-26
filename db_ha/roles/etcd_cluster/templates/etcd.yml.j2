@@ -1,0 +1,27 @@
+# roles/etcd_cluster/templates/etcd.yml.j2
+# - initial-cluster는 "한 줄 문자열"로 생성해서 YAML 깨짐 방지
+# - listen/advertise URL도 "콤마 문자열"로 통일(파서 호환성 ↑)
+
+{# 노드 IP 결정: inventory에 ansible_host가 있으면 그걸 쓰고, 없으면 기본 IPv4 사용 #}
+{%- set node_ip = (hostvars[inventory_hostname].ansible_host | default(ansible_default_ipv4.address)) -%}
+
+{# initial-cluster 문자열 생성 #}
+{%- set peers = [] -%}
+{%- for h in groups[etcd_group_name] -%}
+{%- set ip = (hostvars[h].ansible_host | default(hostvars[h].ansible_default_ipv4.address)) -%}
+{%- set _ = peers.append(h ~ '=http://' ~ ip ~ ':' ~ etcd_peer_port) -%}
+{%- endfor -%}
+
+name: "{{ inventory_hostname }}"
+data-dir: "{{ etcd_data_dir }}"
+
+listen-client-urls: "http://127.0.0.1:{{ etcd_client_port }},http://{{ node_ip }}:{{ etcd_client_port }}"
+advertise-client-urls: "http://{{ node_ip }}:{{ etcd_client_port }}"
+
+listen-peer-urls: "http://{{ node_ip }}:{{ etcd_peer_port }}"
+initial-advertise-peer-urls: "http://{{ node_ip }}:{{ etcd_peer_port }}"
+
+initial-cluster-token: "{{ etcd_cluster_token }}"
+initial-cluster-state: "{{ etcd_initial_cluster_state }}"
+initial-cluster: "{{ peers | join(',') }}"
+

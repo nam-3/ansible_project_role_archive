@@ -1,0 +1,87 @@
+# ============================================
+# Patroni config
+# ============================================
+scope: "{{ patroni_cluster_name }}"
+namespace: "{{ patroni_namespace }}"
+name: "{{ inventory_hostname }}"
+
+restapi:
+  listen: "0.0.0.0:{{ patroni_rest_port }}"
+  connect_address: "{{ ansible_host }}:{{ patroni_rest_port }}"
+
+# ✅ IMPORTANT
+# - protocol은 별도 필드로 둠
+# - hosts에는 host:port만 넣음 (http:// 절대 X)
+etcd3:
+  protocol: "{{ patroni_etcd_protocol }}"
+  hosts: "{{ patroni_etcd_hosts | join(',') }}"
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        wal_keep_size: "256MB"
+        max_connections: 200
+        shared_buffers: "256MB"
+        logging_collector: "on"
+        log_destination: "stderr"
+        log_directory: "log"
+        log_filename: "postgresql-%a.log"
+        log_min_duration_statement: 500
+
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+
+  pg_hba:
+    - "host all all 0.0.0.0/0 md5"
+    - "host replication {{ patroni_replication_user }} 0.0.0.0/0 md5"
+
+  users:
+    "{{ patroni_replication_user }}":
+      password: "{{ patroni_replication_password }}"
+      options:
+        - replication
+    "{{ patroni_rewind_user }}":
+      password: "{{ patroni_rewind_password }}"
+      options:
+        - replication
+
+postgresql:
+  listen: "0.0.0.0:{{ patroni_pg_port }}"
+  connect_address: "{{ ansible_host }}:{{ patroni_pg_port }}"
+  data_dir: "{{ patroni_data_dir }}"
+  bin_dir: "/usr/bin"
+  pgpass: "/var/lib/pgsql/.pgpass"
+  authentication:
+    superuser:
+      username: "{{ patroni_superuser }}"
+      password: "{{ patroni_superuser_password }}"
+    replication:
+      username: "{{ patroni_replication_user }}"
+      password: "{{ patroni_replication_password }}"
+    rewind:
+      username: "{{ patroni_rewind_user }}"
+      password: "{{ patroni_rewind_password }}"
+  parameters:
+    unix_socket_directories: "/var/run/postgresql"
+  create_replica_methods:
+    - basebackup
+  basebackup:
+    checkpoint: fast
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

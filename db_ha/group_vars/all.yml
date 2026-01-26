@@ -1,0 +1,63 @@
+# =========================
+# VIP / LB 공통
+# =========================
+vip_ip: "192.168.40.55"
+vip_iface: "ens192"          # VIP 올라갈 NIC
+vip_prefixlen: 24
+
+keepalived_vrid: 55
+keepalived_auth_pass: "1111"
+
+# =========================
+# PostgreSQL / Patroni
+# =========================
+patroni_cluster_name: "pg-ha"
+
+pg_port: 5432
+patroni_rest_port: 8008
+pg_data_dir: "/var/lib/pgsql/data"
+
+# 실습용 계정(나중에 Vault/Ansible-vault로 교체 가능)
+pg_superuser: "postgres"
+pg_superpass: "postgres"
+
+pg_repl_user: "replicator"
+pg_repl_pass: "replicator"
+
+# =========================
+# HAProxy (DBLB)
+# =========================
+haproxy_listen_port: 5432
+
+# HAProxy가 “Primary만” 보내기 위해 Patroni REST(/primary)를 헬스체크
+# (Primary면 200, Replica면 503)
+
+# =========================
+# etcd
+# =========================
+# etcd 바이너리 버전(참고용)
+etcd_version: "3.5.16"
+
+# etcd 클러스터가 동작할 대상 그룹명 (inventory에서 [etcd] 그룹)
+etcd_group: "etcd"
+
+# etcd 데이터 디렉토리
+etcd_data_dir: "/var/lib/etcd"
+
+# etcd 설정 파일 경로
+etcd_conf_dir: "/etc/etcd"
+etcd_conf_file: "/etc/etcd/etcd.yml"
+
+# 클러스터 토큰(초기 클러스터 구성 시 동일해야 함)
+etcd_cluster_token: "etcd-cluster-01"
+
+# 테스트 환경에서만 true로 쓰면 /var/lib/etcd를 날리고 새로 구성함
+# ⚠️ 운영에서 true 하면 데이터 다 날아감
+etcd_force_reinit: true
+
+# 방화벽 사용 여부 (firewalld가 꺼져있어도 자동으로 설치/기동할지)
+etcd_manage_firewalld: true
+
+# etcd 포트
+etcd_client_port: 2379
+etcd_peer_port: 2380

@@ -1,0 +1,97 @@
+---
+# Patroni는 Python 패키지 + Postgres 바이너리가 필요하고
+# psycopg2(또는 psycopg3)가 없으면 너가 봤던 에러로 바로 죽음.
+
+- name: "필수 패키지 설치(PostgreSQL + Python + 도구)"
+  ansible.builtin.dnf:
+    name:
+      - python3
+      - python3-pip
+      - jq
+      - postgresql-server
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2   # ★ 이게 없으면 Patroni가 FATAL로 죽음(가능한 환경이면 dnf로 해결)
+    state: present
+
+- name: "pip로 Patroni 설치"
+  ansible.builtin.pip:
+    name:
+      - patroni[etcd3]
+      # dnf에 psycopg2가 없거나 버전 문제 있으면 아래도 도움됨(겹쳐도 괜찮)
+      - psycopg2-binary>=2.9
+    executable: pip3
+
+- name: "postgres 실행 사용자(postgres) 존재 확인"
+  ansible.builtin.user:
+    name: postgres
+    system: true
+    shell: /bin/bash
+  failed_when: false
+
+- name: "Patroni 설정 디렉토리 생성(/etc/patroni)"
+  ansible.builtin.file:
+    path: /etc/patroni
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: "PostgreSQL 데이터 디렉토리 생성"
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: "Patroni 설정 파일 배포(/etc/patroni/patroni.yml)"
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: /etc/patroni/patroni.yml
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: "patroni 재시작"
+
+- name: "Patroni systemd unit 배포"
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    mode: "0644"
+  notify: "systemd reload"
+
+- name: "firewalld 패키지 설치"
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: "firewalld 서비스 시작/활성화"
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: "방화벽 오픈(Patroni REST 8008, Postgres 5432)"
+  ansible.builtin.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "{{ patroni_rest_port }}"
+    - "{{ pg_port }}"
+
+- name: "Patroni 서비스 시작/활성화"
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: "Patroni REST 포트 대기(8008)"
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: "{{ patroni_rest_port }}"
+    timeout: 60
+

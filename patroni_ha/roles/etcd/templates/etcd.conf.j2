@@ -1,0 +1,17 @@
+# /etc/etcd/etcd.conf (EnvironmentFile)
+
+ETCD_NAME="{{ inventory_hostname }}"
+ETCD_DATA_DIR="{{ etcd_data_dir }}"
+
+# peer
+ETCD_LISTEN_PEER_URLS="http://{{ ansible_host }}:{{ etcd_peer_port }}"
+ETCD_INITIAL_ADVERTISE_PEER_URLS="http://{{ ansible_host }}:{{ etcd_peer_port }}"
+
+# client
+ETCD_LISTEN_CLIENT_URLS="http://{{ ansible_host }}:{{ etcd_client_port }},http://127.0.0.1:{{ etcd_client_port }}"
+ETCD_ADVERTISE_CLIENT_URLS="http://{{ ansible_host }}:{{ etcd_client_port }}"
+
+# cluster
+ETCD_INITIAL_CLUSTER_TOKEN="{{ etcd_cluster_token }}"
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER="{% for h in groups['dcs'] -%}{{ h }}=http://{{ hostvars[h].ansible_host }}:{{ etcd_peer_port }}{% if not loop.last %},{% endif %}{%- endfor %}"

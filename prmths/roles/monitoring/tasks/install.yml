@@ -1,0 +1,25 @@
+---
+# 1. 공통 패키지 (모든 서버에 설치)
+- name: Install Common Monitoring Agents
+  dnf:
+    name:
+      - node_exporter
+      - promtail
+    state: present
+  notify:
+    - restart node_exporter
+    - restart promtail
+
+# 2. 서버 전용 패키지 (monitoring_server 그룹만 설치)
+- name: Install Server Components
+  dnf:
+    name:
+      - prometheus
+      - grafana
+      - loki
+    state: present
+  when: inventory_hostname in groups['monitoring_server']
+  notify:
+    - restart prometheus
+    - restart grafana
+    - restart loki

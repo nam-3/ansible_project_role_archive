@@ -1,0 +1,24 @@
+$TTL 86400
+@   IN  SOA {{ dns_server_name }}.{{ dns_domain }}. root.{{ dns_domain }}. (
+        {{ lookup('pipe','date +%Y%m%d%H') }} ; serial
+        3600
+        900
+        604800
+        86400
+)
+
+@   IN  NS  {{ dns_server_name }}.{{ dns_domain }}.
+
+; reverse_zone_prefix = "192.168.40" 같은 /24 prefix
+; reverse_zone_name   = "40.168.192.in-addr.arpa" 같은 형태
+
+{% for h in (groups['discovered'] | default([])) %}
+{% set hn = (hostvars[h].ansible_facts.hostname | default(h)) %}
+{% for ip in (hostvars[h].dns_ptr_ipv4 | default([], true)) %}
+{% if ip is match('^' ~ (reverse_zone_prefix | regex_escape) ~ '\\.\\d+$') %}
+{% set last = ip.split('.')[-1] %}
+{{ last }}   IN PTR  {{ hn }}.{{ dns_domain }}.
+{% endif %}
+{% endfor %}
+{% endfor %}
+
