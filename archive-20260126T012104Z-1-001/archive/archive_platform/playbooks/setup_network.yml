@@ -43,6 +43,12 @@
     #   when: external_ip is defined
 
     # Case B: Service IP (Web, ALB, DB, DBLB)
+    - name: "Remove Default Connection for NIC #2 ({{ svc_iface }})"
+      shell: |
+        nmcli con show | grep "{{ svc_iface }}" | grep -v "{{ svc_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
+      when: service_ip is defined
+      ignore_errors: yes
+
     - name: "Configure NIC #2 ({{ svc_iface }}) - Service Network"
       nmcli:
         conn_name: "{{ svc_iface }}"
@@ -52,11 +58,21 @@
         state: present
       when: service_ip is defined
 
+    - name: "Bring Up NIC #2 ({{ svc_iface }})"
+      shell: nmcli con up "{{ svc_iface }}"
+      when: service_ip is defined
+
     # --------------------------------------------------------------------------
     # 2. Configure Heartbeat IP (NIC #3 - ens256)
     # --------------------------------------------------------------------------
     
     # Case C: Heartbeat IP (DBLB only usually)
+    - name: "Remove Default Connection for NIC #3 ({{ hb_iface }})"
+      shell: |
+        nmcli con show | grep "{{ hb_iface }}" | grep -v "{{ hb_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
+      when: hb_ip is defined
+      ignore_errors: yes
+
     - name: "Configure NIC #3 ({{ hb_iface }}) - Heartbeat Network"
       nmcli:
         conn_name: "{{ hb_iface }}"
@@ -64,6 +80,10 @@
         type: ethernet
         ip4: "{{ hb_ip }}/{{ default_prefix }}"
         state: present
+      when: hb_ip is defined
+
+    - name: "Bring Up NIC #3 ({{ hb_iface }})"
+      shell: nmcli con up "{{ hb_iface }}"
       when: hb_ip is defined
 
     # --------------------------------------------------------------------------

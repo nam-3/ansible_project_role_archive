@@ -11,15 +11,15 @@ ansible --version
 ### 2. SSH 키 설정
 ```bash
 # Control Node에서 모든 타겟 서버로 SSH 키 복사
-ssh-copy-id ansible@192.168.40.1   # Gateway (Gateway-Mgmt)
-ssh-copy-id ansible@192.168.40.20  # ALB
-ssh-copy-id ansible@192.168.40.30  # Web1
-ssh-copy-id ansible@192.168.40.40  # Web2
-ssh-copy-id ansible@192.168.40.50  # DBLB1
-ssh-copy-id ansible@192.168.40.51  # DBLB2
-ssh-copy-id ansible@192.168.40.52  # DCS
-ssh-copy-id ansible@192.168.40.60  # DB1
-ssh-copy-id ansible@192.168.40.70  # DB2
+ssh-copy-id root@192.168.40.1   # Gateway (Gateway-Mgmt)
+ssh-copy-id root@192.168.40.20  # ALB
+ssh-copy-id root@192.168.40.30  # Web1
+ssh-copy-id root@192.168.40.40  # Web2
+ssh-copy-id root@192.168.40.50  # DBLB1
+ssh-copy-id root@192.168.40.51  # DBLB2
+ssh-copy-id root@192.168.40.52  # DCS
+ssh-copy-id root@192.168.40.60  # DB1
+ssh-copy-id root@192.168.40.70  # DB2
 ```
 
 ### 3. 연결 테스트
@@ -106,7 +106,7 @@ ansible all -m shell -a "nmcli dev status"
 ### 애플리케이션 실행 오류 (Web)
 Web 서버(`web1`, `web2`)에서 서비스 로그를 확인합니다.
 ```bash
-ssh ansible@192.168.40.30
+ssh root@192.168.40.30
 sudo journalctl -u archive-web -f
 # 또는 /opt/cmp_app/ 로그 확인
 ```
