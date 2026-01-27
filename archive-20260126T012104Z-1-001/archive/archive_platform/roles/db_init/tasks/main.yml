@@ -12,15 +12,24 @@
     is_db_node: "{{ 'dcs' not in inventory_hostname }}"
   tags: [db_init]
 
+# 0.5 Wait for Cluster Leader Election (Global Check)
+- name: Wait until a Leader is elected in the cluster
+  uri:
+    url: "http://{{ service_ip }}:8008/cluster"
+    return_content: yes
+  register: cluster_status
+  until: "'\"role\": \"leader\"' in cluster_status.content"
+  retries: 30
+  delay: 5
+  tags: [db_init]
+  when: is_db_node
+
 # 1. Wait for Patroni Leader (or Replica)
-- name: Wait for Patroni Leader (returns 200) or Replica (returns 503)
+- name: Check node status (Leader=200, Replica=503)
   uri:
     url: "http://{{ service_ip }}:8008/leader"
     status_code: [200, 503]
   register: leader_check
-  until: leader_check.status in [200, 503]
-  retries: 30
-  delay: 5
   tags: [db_init]
   when: is_db_node
 
