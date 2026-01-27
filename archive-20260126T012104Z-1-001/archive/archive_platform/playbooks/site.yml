@@ -63,6 +63,17 @@
   roles:
     - patroni
 
+- name: 6. Initialize Database (Users & Schemas)
+  hosts: db_cluster
+  tags:
+    - db
+    - db_init
+    - db_cluster
+    - backend
+    - all
+  roles:
+    - db_init
+
 - name: 5. Deploy Web Servers
   hosts: web
   tags:

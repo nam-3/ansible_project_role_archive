@@ -1,60 +1,110 @@
+# 클러스터 식별자(논리 이름). etcd에 저장되는 cluster scope 키의 기준이 됨
 scope: postgres-cluster
+
+# DCS(etcd) 안에서 키가 저장될 prefix 경로.
+# 예: /db/postgres-cluster/ 아래에 리더/멤버/설정 키들이 생김
 namespace: /db/
+
+# 이 노드의 이름(보통 inventory hostname을 그대로 씀)
 name: {{ inventory_hostname }}
 
 restapi:
+  # Patroni REST API 리슨 주소(다른 노드/HAProxy가 상태 확인할 때 접근)
+  # 보통 DB 서비스망(service_ip)로 열어둠
   listen: {{ service_ip }}:8008
+
+  # 다른 노드들이 "이 노드의 REST API"에 접근할 때 사용할 주소
+  # NAT/다중 NIC 환경이면 listen과 connect_address를 다르게 잡기도 함
   connect_address: {{ service_ip }}:8008
 
-# ★ etcd3로 변경 (v3 API 사용)
+# ★ etcd v3 API를 사용하는 설정 블록
+# (Patroni에서 etcd를 DCS로 쓸 때 v2/etcd/etcd3 블록이 다를 수 있음)
 etcd3:
+  # etcd client endpoint.
+  # 여기서는 로컬에 etcd가 떠있다는 가정(127.0.0.1).
+  # 만약 etcd가 별도 DCS 노드(3대)라면 "호스트:포트"들을 여기에 나열해야 함(환경에 따라 다름).
   host: 127.0.0.1:2379
-
+  # 위 코드는 DB에 붙은 etcd만 인식하게 해둔것 같음(test용) !! 아래처럼 나열해야 할 듯
+	# hosts: [192.168.40.51:2379, 192.168.40.52:2379, 192.168.40.53:2379]
 bootstrap:
+  # 클러스터가 "처음 생성"될 때만 적용되는 DCS 초기 설정(리더 선출/타임아웃 등)
   dcs:
     ttl: 30
+    # DCS에 이 노드의 상태를 갱신하는 주기(초)
+    # loop_wait < ttl 관계를 보통 유지함(여기선 10초 주기)
     loop_wait: 10
+
+    # DCS 통신 실패 시 재시도 타임아웃
     retry_timeout: 10
-    maximum_lag_on_failover: 1048576
+
+    # 장애조치(failover) 시 허용하는 최대 WAL 지연(바이트).
+    # 너무 뒤처진 레플리카로 failover 되는 걸 방지
+    maximum_lag_on_failover: 1048576  # 1MB
+
     postgresql:
+      # failover 시 pg_rewind를 사용해 새 리더를 따라잡게 시도(데이터 일관성에 도움)
       use_pg_rewind: true
+
+      # postgresql.conf에 들어갈 주요 파라미터들(복제/대기/슬롯 등)
       parameters:
+        # 스트리밍 복제를 위해 replica 레벨 필요
         wal_level: replica
+        # standby에서 read-only 쿼리 허용
         hot_standby: "on"
+
+        # WAL 파일 보관량(15버전부터 wal_keep_segments 대신 wal_keep_size)
         wal_keep_size: 128MB
+
+        # 복제 송신 프로세스 최대 수(standby 수에 맞게)
         max_wal_senders: 10
+
+        # replication slots 최대 수(standby + backup tool 고려)
         max_replication_slots: 10
 
+  # initdb 옵션: 최초 DB 데이터 디렉터리 생성 시 적용
   initdb:
-  - encoding: UTF8
-  - data-checksums
-  
-  users:
-    - name: admin
-      password: Soldesk1.
-      options:
-        - createrole
-        - createdb
+  - encoding: UTF8          # 기본 인코딩
+  - data-checksums          # 페이지 체크섬 활성화(무결성 도움, 약간의 오버헤드)
 
 postgresql:
+  # PostgreSQL이 실제로 리슨할 주소/포트
   listen: {{ service_ip }}:5432
+
+  # 다른 노드/클라이언트가 이 노드의 PostgreSQL에 접근할 때 사용할 주소
   connect_address: {{ service_ip }}:5432
+
+  # PGDATA 위치(버전에 맞춰 경로가 정확해야 함)
   data_dir: /var/lib/pgsql/15/data
+
+  # postgres/pg_ctl 등 바이너리 경로(패키지 설치 방식에 따라 달라짐)
   bin_dir: /usr/pgsql-15/bin
+
+  # pg_hba.conf 엔트리(접근 제어)
+  # ⚠️ 아래 두 줄은 매우 개방적(0.0.0.0/0)이라, 내부망이어도 SG/방화벽으로 꼭 제한 권장
   pg_hba:
-  - host replication all 0.0.0.0/0 md5
-  - host all all 0.0.0.0/0 md5
+  - host replication all 0.0.0.0/0 md5   # 어디서든 복제 접속 허용(md5)
+  - host all all 0.0.0.0/0 md5           # 어디서든 모든 DB 접속 허용(md5)
 
   authentication:
     replication:
+      # 레플리케이션 전용 유저(Primary에서 생성/관리)
       username: replicator
       password: replicator_password
+
     superuser:
+      # postgres 슈퍼유저 계정(관리자)
       username: postgres
       password: postgres_password
 
 tags:
+  # Patroni가 해당 노드를 failover 대상에서 제외할지 여부
   nofailover: false
+
+  # LB(HAProxy 등)가 이 노드를 로드밸런싱 대상에서 제외할지 여부
   noloadbalance: false
+
+  # clonefrom 태그가 true인 노드를 복제 소스로 선호(보통 false)
   clonefrom: false
+
+  # 동기 복제(synchronous replication) 구성에서 제외할지 여부
   nosync: false

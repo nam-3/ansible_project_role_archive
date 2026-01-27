@@ -5,7 +5,6 @@
 - name: Check if node is DB node
   set_fact:
     is_db_node: "{{ 'dcs' not in inventory_hostname }}"
-  tags: [always]
 
 # -----------------------------------------------------------------
 # 1. 리포지토리 설정 (DB 노드만)
@@ -61,11 +60,11 @@
     - initdb
     - pg_basebackup
     - psql
-    - pg_config
+    - pg_config  # ★ pip 설치 성공의 열쇠
   when: is_db_node
 
 # -----------------------------------------------------------------
-# 4. Patroni 설치 (DB 노드만)
+# 4. [v3 해결] Patroni 설치 (DB 노드만)
 # -----------------------------------------------------------------
 - name: Upgrade pip build tools
   pip:
@@ -78,7 +77,7 @@
   pip:
     name:
       - "psycopg2==2.9.9"
-      - "patroni[etcd3]"
+      - "patroni[etcd3]"  # ★ 중요: etcd3 사용
     executable: pip3
   environment:
     PATH: "/usr/pgsql-{{ pg_version }}/bin:{{ ansible_env.PATH }}"
@@ -135,35 +134,3 @@
     - 8008/tcp
   when: is_db_node
   ignore_errors: yes
-
-# -----------------------------------------------------------------
-# 6. 사용자 및 DB 자동 생성 (Fail-safe)
-# -----------------------------------------------------------------
-- name: Create or Update Replicator User (Fail-safe)
-  shell: |
-    /usr/pgsql-{{ pg_version }}/bin/psql -U postgres -h 127.0.0.1 -c "DO \$$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'replicator') THEN CREATE ROLE replicator LOGIN PASSWORD 'replicator_password' REPLICATION; END IF; END \$$;" || true
-  become_user: root
-  environment:
-    PGPASSWORD: postgres_password
-  register: replicator_create_result
-  until: replicator_create_result.rc == 0
-  retries: 20
-  delay: 5
-  ignore_errors: yes
-  tags: [db_init]
-  when: is_db_node
-
-- name: Create or Update Admin User and Database (Fail-safe)
-  shell: |
-    /usr/pgsql-{{ pg_version }}/bin/psql -U postgres -h 127.0.0.1 -c "DO \$$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN CREATE ROLE admin LOGIN PASSWORD 'Soldesk1.' CREATEDB CREATEROLE; END IF; END \$$;"
-    /usr/pgsql-{{ pg_version }}/bin/psql -U postgres -h 127.0.0.1 -c "SELECT 'CREATE DATABASE cmp_db OWNER admin' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'cmp_db')\gexec" || true
-  become_user: root
-  environment:
-    PGPASSWORD: postgres_password
-  register: db_create_result
-  until: db_create_result.rc == 0
-  retries: 20
-  delay: 5
-  ignore_errors: yes
-  tags: [db_init]
-  when: is_db_node
