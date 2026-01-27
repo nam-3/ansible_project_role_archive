@@ -13,6 +13,14 @@
   block:
     - command: dnf config-manager --set-enabled crb
       ignore_errors: yes
+    
+    # [Fix] Grafana Repo GPG Key Error
+    - name: Import Grafana GPG Key
+      rpm_key:
+        state: present
+        key: https://rpm.grafana.com/gpg.key
+      ignore_errors: yes
+
     - dnf: name=epel-release state=present
     - command: dnf clean all
       changed_when: false

@@ -6,21 +6,28 @@
 # It MUST run after 'patroni' role.
 # It runs only on the LEADER node.
 
+# 0. DCS 노드 제외
+- name: Check if node is DB node
+  set_fact:
+    is_db_node: "{{ 'dcs' not in inventory_hostname }}"
+  tags: [db_init]
+
 # 1. Wait for Patroni Leader
 - name: Wait for Patroni Leader to be ready
   uri:
-    url: "http://127.0.0.1:8008/leader"
+    url: "http://{{ service_ip }}:8008/leader"
     status_code: 200
   register: leader_check
   until: leader_check.status == 200
   retries: 30
   delay: 5
   tags: [db_init]
+  when: is_db_node
 
 # 2. Replicator User (For HA)
 - name: Create or Update Replicator User
   shell: |
-    /usr/pgsql-{{ pg_version }}/bin/psql -h 127.0.0.1 -U postgres -d postgres -c "
+    /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
     DO \$$
     BEGIN
       IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'replicator') THEN
@@ -32,11 +39,12 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
+  when: is_db_node
 
 # 3. Admin User (For App)
 - name: Create or Update Admin User
   shell: |
-    /usr/pgsql-{{ pg_version }}/bin/psql -h 127.0.0.1 -U postgres -d postgres -c "
+    /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
     DO \$$
     BEGIN
       IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'admin') THEN
@@ -48,17 +56,19 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
+  when: is_db_node
 
 # 4. CMP Database
 - name: Create Application Database (cmp_db)
   shell: |
-    /usr/pgsql-{{ pg_version }}/bin/psql -h 127.0.0.1 -U postgres -d postgres -c "
+    /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
     SELECT 'CREATE DATABASE cmp_db OWNER admin'
     WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'cmp_db')\gexec"
   become_user: root
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
+  when: is_db_node
 
 # 5. Restart Cluster to Apply Verification
 - name: Restart Patroni on all DB nodes (to sync replication)
@@ -69,3 +79,4 @@
   loop: "{{ groups['db_cluster'] }}"
   run_once: true
   tags: [db_init]
+  when: is_db_node
