@@ -1,19 +1,21 @@
-# Gateway Nginx Reverse Proxy Configuration
-# External (172.16.6.77) -> Internal ALB (192.168.10.20)
+# New Archive Platform Parallel Deployment (Port 8080)
+# Access: http://{{ external_ip }}:8080
+# Proxies to: Internal ALB (192.168.40.20)
 
 server {
-    listen 80;
-    server_name {{ external_ip }};
+    listen 8080;
+    server_name _;
 
-    # Proxy all traffic to Internal ALB
+    # Proxy all traffic to the New Internal ALB
     location / {
-        proxy_pass http://{{ alb_vip }};
+        proxy_pass http://192.168.40.20:80;
+        
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    access_log /var/log/nginx/gateway_access.log;
-    error_log /var/log/nginx/gateway_error.log;
+    
+    access_log /var/log/nginx/new_archive_access.log;
+    error_log /var/log/nginx/new_archive_error.log;
 }

@@ -23,10 +23,10 @@
     state: started
     enabled: yes
 
-- name: Deploy Nginx Proxy Configuration
+- name: Deploy Parallel Nginx Config (Port 8080)
   template:
     src: nginx_proxy.conf.j2
-    dest: /etc/nginx/conf.d/gateway_proxy.conf
+    dest: /etc/nginx/conf.d/new_archive_platform.conf
   notify: Restart Nginx
 
 - name: Start and Enable Nginx
@@ -35,7 +35,7 @@
     state: started
     enabled: yes
 
-- name: Configure Firewall for HTTP/HTTPS
+- name: Configure Firewall for HTTP/HTTPS/8080
   firewalld:
     service: "{{ item }}"
     permanent: yes
@@ -44,4 +44,11 @@
     - http
     - https
     - redis
+  notify: Reload Firewall
+
+- name: Open Port 8080 for New Platform
+  firewalld:
+    port: 8080/tcp
+    permanent: yes
+    state: enabled
   notify: Reload Firewall
