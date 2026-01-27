@@ -113,6 +113,7 @@
     src: templates/patroni.yml.j2
     dest: /etc/patroni/patroni.yml
   when: is_db_node
+  register: patroni_conf
   notify: Restart Patroni
 
 - name: Deploy Patroni Service Unit
@@ -120,6 +121,7 @@
     src: templates/patroni.service.j2
     dest: /etc/systemd/system/patroni.service
   when: is_db_node
+  register: patroni_unit
   notify: Restart Patroni
 
 - name: Start Patroni Service
@@ -128,7 +130,7 @@
     state: started
     enabled: yes
     daemon_reload: yes
-  when: is_db_node
+  when: is_db_node and (not patroni_conf.changed) and (not patroni_unit.changed)
 
 # -----------------------------------------------------------------
 # 6. 방화벽 설정 (DB 노드만) - 추가됨
