@@ -12,19 +12,19 @@
     is_db_node: "{{ 'dcs' not in inventory_hostname }}"
   tags: [db_init]
 
-# 1. Wait for Patroni Leader
-- name: Wait for Patroni Leader to be ready
+# 1. Wait for Patroni Leader (or Replica)
+- name: Wait for Patroni Leader (returns 200) or Replica (returns 503)
   uri:
     url: "http://{{ service_ip }}:8008/leader"
-    status_code: 200
+    status_code: [200, 503]
   register: leader_check
-  until: leader_check.status == 200
+  until: leader_check.status in [200, 503]
   retries: 30
   delay: 5
   tags: [db_init]
   when: is_db_node
 
-# 2. Replicator User (For HA)
+# 2. Replicator User (For HA) - Only on Leader (200)
 - name: Create or Update Replicator User
   shell: |
     /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
@@ -39,9 +39,9 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
-  when: is_db_node
+  when: is_db_node and leader_check.status == 200
 
-# 3. Admin User (For App)
+# 3. Admin User (For App) - Only on Leader (200)
 - name: Create or Update Admin User
   shell: |
     /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
@@ -56,9 +56,9 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
-  when: is_db_node
+  when: is_db_node and leader_check.status == 200
 
-# 4. CMP Database
+# 4. CMP Database - Only on Leader (200)
 - name: Create Application Database (cmp_db)
   shell: |
     /usr/pgsql-{{ pg_version }}/bin/psql -h {{ service_ip }} -U postgres -d postgres -c "
@@ -68,7 +68,7 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
-  when: is_db_node
+  when: is_db_node and leader_check.status == 200
 
 # 5. Restart Cluster to Apply Verification
 - name: Restart Patroni on all DB nodes (to sync replication)
