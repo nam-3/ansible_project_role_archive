@@ -129,6 +129,7 @@
     name: patroni
     state: started
     enabled: yes
+    daemon_reload: yes
   when: is_db_node
 
 - name: Open firewall ports for PostgreSQL and Patroni
