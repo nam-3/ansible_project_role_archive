@@ -24,6 +24,12 @@
   tags: [db_init]
   when: is_db_node
 
+# 1.1 Debug - Check Status
+- debug:
+    msg: "Node {{ inventory_hostname }} status: {{ leader_check.status }}"
+  tags: [db_init]
+  when: is_db_node
+
 # 2. Replicator User (For HA) - Only on Leader (200)
 - name: Create or Update Replicator User
   shell: |
@@ -76,7 +82,7 @@
     name: patroni
     state: restarted
   delegate_to: "{{ item }}"
-  loop: "{{ groups['db_cluster'] }}"
+  loop: "{{ groups['db_cluster'] | difference(['dcs']) }}"
   run_once: true
   tags: [db_init]
   when: is_db_node
