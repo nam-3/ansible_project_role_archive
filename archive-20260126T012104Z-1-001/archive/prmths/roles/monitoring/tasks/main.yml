@@ -11,3 +11,9 @@
 # 4. 설정 파일 구성
 - import_tasks: configure.yml
   tags: [config]
+
+# 5. 최적화 (Repo 비활성화)
+- name: Disable Prometheus Repo (Prevent dnf timeout)
+  shell: "mv /etc/yum.repos.d/prometheus-rpm_release.repo /etc/yum.repos.d/prometheus-rpm_release.repo.bak || true"
+  ignore_errors: yes
+  tags: [post_install]

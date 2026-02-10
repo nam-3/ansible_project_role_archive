@@ -1,0 +1,94 @@
+- name: VM 전원 상태 확인
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Ensure Workload VM is powered on
+      vmware.vmware.vm_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        datacenter: "Datacenter"
+        name: "{{ item }}"
+        state: powered-on
+      delegate_to: localhost
+      loop: "{{ target_vm_names }}"
+
+    - name: Wait for VM to boot
+      wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+        timeout: 300
+      delegate_to: localhost
+      loop: "{{ target_ips }}"
+
+- name: 워크로드 VM에 사용자가 선택한 패키지 설치 및 서비스 기동
+  hosts: all
+  become: yes
+  vars:
+    # UI 명칭과 실제 패키지/서비스 명칭 매핑
+    pkg_map:
+      nginx: { pkg: "nginx", svc: "nginx" }
+      haproxy: { pkg: "haproxy", svc: "haproxy" }
+      tomcat: { pkg: "tomcat", svc: "tomcat" }
+      postgresql: { pkg: "postgresql-server", svc: "postgresql" }
+      mysql: { pkg: "mariadb-server", svc: "mariadb" }
+      redis: { pkg: "redis", svc: "redis" }
+      docker: { pkg: "docker", svc: "docker" }
+      jenkins: { pkg: "jenkins", svc: "jenkins" }
+      elasticsearch: { pkg: "elasticsearch", svc: "elasticsearch" }
+      kibana: { pkg: "kibana", svc: "kibana" }
+      # Node.js와 Python은 보통 서비스 형태가 아니므로 패키지만 설치
+      nodejs: { pkg: "nodejs", svc: "" }
+      python: { pkg: "python3", svc: "" }
+
+  tasks:
+    - name: Debug Received Info
+      debug:
+        msg: 
+          - "현재 호스트: {{ inventory_hostname }}"
+          - "설치 요청된 패키지: {{ packages_to_install }}"
+          - "LB 그룹: {{ lb_hosts | default('None') }}"
+          - "WEB 그룹: {{ web_hosts | default('None') }}"
+          - "DB 그룹: {{ db_hosts | default('None') }}"
+
+    # 1. 역할 기반 패키지 일괄 설치
+    - name: Install requested packages by role
+      yum:
+        name: "{{ pkg_map[item].pkg }}"
+        state: present
+      loop: "{{ packages_to_install }}"
+      when: 
+        - item in pkg_map
+        - >
+          (template_type == 'single') or
+          (item == 'haproxy' and inventory_hostname in lb_hosts) or
+          (item in ['nginx', 'tomcat', 'nodejs', 'python'] and inventory_hostname in web_hosts) or
+          (item in ['postgresql', 'mysql', 'redis'] and inventory_hostname in db_hosts)          
+
+    # 2. 특수: PostgreSQL 초기화 (DB 티어인 경우만 실행)
+    - name: Initialize PostgreSQL database
+      command: postgresql-setup initdb
+      args:
+        creates: /var/lib/pgsql/data/PG_VERSION
+      when: 
+        - "'postgresql' in packages_to_install"
+        - (template_type == 'single' or inventory_hostname in db_hosts)
+
+    # 4. 역할 기반 서비스 기동
+    - name: Start and enable services by role
+      systemd:
+        name: "{{ pkg_map[item].svc }}"
+        state: started
+        enabled: yes
+      loop: "{{ packages_to_install }}"
+      when: 
+        - item in pkg_map 
+        - pkg_map[item].svc != ""
+        - >
+          (template_type == 'single') or
+          (item == 'haproxy' and inventory_hostname in lb_hosts) or
+          (item in ['nginx', 'tomcat'] and inventory_hostname in web_hosts) or
+          (item in ['postgresql', 'mysql', 'redis'] and inventory_hostname in db_hosts)          
+      ignore_errors: yes

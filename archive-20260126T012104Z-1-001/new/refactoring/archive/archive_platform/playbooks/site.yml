@@ -1,0 +1,85 @@
+---
+# ========================================
+# Archive Platform Deployment Playbook
+# Traffic Flow: Gateway -> ALB -> Web -> DBLB -> DB
+# ========================================
+# 
+# Usage Examples:
+#   Deploy all:           ansible-playbook -i inventory/hosts.ini playbooks/site.yml
+#   Deploy gateway only:  ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags gateway
+#   Deploy web tier:      ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags alb,web
+#   Deploy DB tier:       ansible-playbook -i inventory/hosts.ini playbooks/site.yml --tags db,dblb
+#   Skip DB deployment:   ansible-playbook -i inventory/hosts.ini playbooks/site.yml --skip-tags db
+# ========================================
+
+# - name: 1. Configure Management Gateway
+#   hosts: gateway
+#   tags:
+#     - gateway
+#     - frontend
+#     - all
+#   roles:
+#     - gateway
+
+- name: 2. Deploy Application Load Balancer (Web LB)
+  hosts: alb
+  tags:
+    - alb
+    - web_tier
+    - frontend
+    - all
+  roles:
+    - alb
+
+- name: 3. Deploy Database Load Balancer (DBLB)
+  hosts: dblb
+  tags:
+    - dblb
+    - db_tier
+    - backend
+    - all
+  roles:
+    - db_haproxy
+
+- name: 4. Deploy Etcd Cluster (Cleanup & Setup)
+  hosts: db_cluster
+  tags:
+    - db
+    - etcd
+    - db_cluster
+    - backend
+    - all
+  roles:
+    - etcd_db
+
+- name: 5. Deploy Patroni HA Cluster
+  hosts: db_cluster
+  tags:
+    - db
+    - patroni
+    - db_cluster
+    - backend
+    - all
+  roles:
+    - patroni
+
+- name: 6. Initialize Database (Users & Schemas)
+  hosts: db_cluster
+  tags:
+    - db
+    - db_init
+    - db_cluster
+    - backend
+    - all
+  roles:
+    - db_init
+
+- name: 5. Deploy Web Servers
+  hosts: web
+  tags:
+    - web
+    - web_tier
+    - frontend
+    - all
+  roles:
+    - web

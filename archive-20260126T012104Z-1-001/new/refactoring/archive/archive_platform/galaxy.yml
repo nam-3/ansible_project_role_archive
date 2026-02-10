@@ -1,0 +1,20 @@
+namespace: custom
+name: archive_platform
+version: 1.0.0
+readme: README.md
+authors:
+  - Infrastructure Team
+description: "Multi-Tier HA Platform Collection for VMware vSphere CMP"
+license:
+  - MIT
+tags:
+  - web
+  - database
+  - ha
+  - patroni
+  - haproxy
+repository: http://example.com/repository
+documentation: http://example.com/docs
+homepage: http://example.com
+issues: http://example.com/issue
+build_ignore: []

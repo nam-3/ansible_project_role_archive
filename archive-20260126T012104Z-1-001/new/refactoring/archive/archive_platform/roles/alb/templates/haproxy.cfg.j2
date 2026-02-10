@@ -1,0 +1,40 @@
+# HAProxy Configuration for Web Load Balancing
+# Listen on 192.168.10.20 (ALB VIP)
+# Backend: Web Servers (192.168.10.30/40)
+
+global
+    log 127.0.0.1 local0
+    maxconn 4000
+    daemon
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+# Frontend: Web Service
+frontend web_frontend
+    bind *:80
+    default_backend web_backend
+
+# Backend: Web Servers
+backend web_backend
+    balance roundrobin
+    cookie SERVERID insert indirect nocache
+    option httpchk GET /
+    http-check expect status 200
+    {% for host in groups['web'] %}
+    server {{ host }} {{ hostvars[host]['service_ip'] }}:80 check inter 3s fall 3 rise 2 cookie {{ host }}
+    {% endfor %}
+
+# Stats Page (Optional)
+listen stats
+    bind *:8080
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats auth admin:admin

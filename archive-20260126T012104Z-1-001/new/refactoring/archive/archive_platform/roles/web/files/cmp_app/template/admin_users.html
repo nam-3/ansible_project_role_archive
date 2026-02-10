@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>H-CMP | User Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 테이블 호버 효과 */
+        .table-row-hover:hover {
+            background-color: #f8fafc;
+            transition: background 0.2s;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+    <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-2 font-black text-xl text-slate-800">
+            <i data-lucide="user-check" class="text-blue-600"></i>
+            <span>User Management</span>
+        </div>
+        <a href="/" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Console
+        </a>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-8 fade-in">
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">사용자 가입 승인</h1>
+                <p class="text-slate-500 text-sm mt-1">신규 가입 신청자를 검토하고 자원 쿼터를 할당하세요.</p>
+            </div>
+            <div id="pending-badge"
+                class="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
+                대기 중인 신청: <span id="pending-count">0</span>건
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200">
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">신청자 정보</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">신청일시</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">상태</th>
+                        <th class="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">관리
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="user-list-body">
+                    <tr>
+                        <td colspan="4" class="px-6 py-20 text-center text-slate-400 font-medium">
+                            승인 대기 중인 사용자가 없습니다.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // 아이콘 초기화
+        lucide.createIcons();
+
+        // 페이지 로드 시 실행될 로직 예시
+        // fetchPendingUsers(); 
+    </script>
+</body>
+
+</html>
+
+<script>
+    async function loadPendingUsers() {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await fetch('/api/admin/pending-users', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const users = await res.json();
+            console.log("🔍 API 응답 데이터:", users);
+
+            const list = document.getElementById('user-list');
+            const count = document.getElementById('pending-count');
+
+            if (!Array.isArray(users)) {
+                count.innerText = "0";
+                list.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500 font-bold">에러: ${users.detail || '알 수 없는 오류'}</td></tr>`;
+                return;
+            }
+
+            count.innerText = users.length;
+            if (users.length === 0) {
+                list.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-slate-400 font-bold italic">승인 대기 중인 사용자가 없습니다.</td></tr>`;
+                return;
+            }
+
+            list.innerHTML = users.map(u => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-6 py-5">
+                        <div class="font-bold text-slate-900">${u.full_name}</div>
+                        <div class="text-xs text-slate-400">${u.username}</div>
+                    </td>
+                    <td class="px-6 py-5 text-sm text-slate-500">${new Date(u.created_at).toLocaleString()}</td>
+                    <td class="px-6 py-5">
+                        <span class="bg-amber-50 text-amber-600 px-2.5 py-1 rounded-md text-xs font-black uppercase border border-amber-100 italic">Pending</span>
+                    </td>
+                    <td class="px-6 py-5 text-right">
+                        <button onclick="approveUser('${u.username}')" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm">승인하기</button>
+                        <button onclick="rejectUser('${u.username}')" class="ml-2 bg-white text-slate-400 px-4 py-2 rounded-lg text-xs font-bold border border-slate-200 hover:text-red-600 hover:border-red-200 transition">거절</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // 아이콘 다시 그리기
+            if (window.lucide) lucide.createIcons();
+
+        } catch (err) {
+            console.error("❌ Fetch 에러:", err);
+        }
+    }
+
+    async function approveUser(username) {
+        if (!confirm(`${username} 사용자를 승인하고 기본 자원을 할당하시겠습니까?`)) return;
+
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/admin/approve-user/${username}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+            alert("사용자 승인이 완료되었습니다.");
+            loadPendingUsers();
+        }
+    }
+    loadPendingUsers();
+</script>

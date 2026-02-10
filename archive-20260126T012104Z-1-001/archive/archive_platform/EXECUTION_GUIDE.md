@@ -133,11 +133,16 @@ curl http://192.168.10.40
 
 ### 4. DBLB 검증
 ```bash
-# DBLB에서 Patroni Master 확인
+# 1. DBLB에서 Patroni Master 확인 (백엔드 헬스체크)
 ssh ansible@192.168.40.50
 curl -I http://192.168.30.30:8008/master  # db1
 curl -I http://192.168.30.40:8008/master  # db2
 # 200 OK가 나오는 쪽이 현재 Master
+
+# 2. Web 서버에서 DBLB 접속 확인 (서비스 연결성)
+# DBLB VIP (192.168.20.100)의 5432 포트 접속 테스트
+ansible web -i inventory/hosts.ini -m shell -a "curl -v telnet://192.168.20.100:5432"
+# 'Connected to ...' 메시지가 나오면 성공 (Ctrl+C로 종료)
 ```
 
 ### 5. DB 검증

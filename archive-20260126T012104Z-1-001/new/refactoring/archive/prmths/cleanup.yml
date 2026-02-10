@@ -1,0 +1,10 @@
+---
+- name: Cleanup Monitoring System
+  hosts: all
+  become: true
+  gather_facts: no
+  tasks:
+    - name: Run cleanup tasks from monitoring role
+      import_role:
+        name: monitoring
+        tasks_from: cleanup

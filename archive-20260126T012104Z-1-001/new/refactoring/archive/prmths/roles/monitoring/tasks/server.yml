@@ -1,0 +1,100 @@
+---
+# --- Prometheus ---
+- name: Download Prometheus
+  ansible.builtin.unarchive:
+    src: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: "{{ monitor_bin_dir }}"
+    remote_src: yes
+    extra_opts: "--strip-components=1"
+    creates: "{{ monitor_bin_dir }}/prometheus"
+
+- name: Configure Prometheus
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitor_config_dir }}/prometheus.yml"
+  notify: restart prometheus
+
+- name: Create Prometheus Service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus
+      After=network.target
+      [Service]
+      User=root
+      ExecStart={{ monitor_bin_dir }}/prometheus --config.file={{ monitor_config_dir }}/prometheus.yml --storage.tsdb.path={{ monitor_data_dir }}/prometheus
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart prometheus
+
+# --- Loki ---
+- name: Download Loki
+  ansible.builtin.unzip:
+    src: "https://github.com/grafana/loki/releases/download/v{{ loki_version }}/loki-linux-amd64.zip"
+    dest: "{{ monitor_bin_dir }}"
+    remote_src: yes
+    creates: "{{ monitor_bin_dir }}/loki-linux-amd64"
+
+- name: Rename Loki binary
+  ansible.builtin.command:
+    cmd: mv {{ monitor_bin_dir }}/loki-linux-amd64 {{ monitor_bin_dir }}/loki
+    creates: "{{ monitor_bin_dir }}/loki"
+
+- name: Configure Loki
+  ansible.builtin.template:
+    src: loki-config.yml.j2
+    dest: "{{ monitor_config_dir }}/loki-config.yml"
+  notify: restart loki
+
+- name: Create Loki Service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/loki.service
+    content: |
+      [Unit]
+      Description=Loki
+      After=network.target
+      [Service]
+      User=root
+      ExecStart={{ monitor_bin_dir }}/loki -config.file={{ monitor_config_dir }}/loki-config.yml
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart loki
+
+# --- Grafana (Repo Install) ---
+- name: Add Grafana Repo
+  ansible.builtin.copy:
+    dest: /etc/yum.repos.d/grafana.repo
+    content: |
+      [grafana]
+      name=grafana
+      baseurl=https://rpm.grafana.com
+      repo_gpgcheck=1
+      enabled=1
+      gpgcheck=1
+      gpgkey=https://rpm.grafana.com/gpg.key
+      sslverify=1
+      sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+
+- name: Install Grafana
+  ansible.builtin.dnf:
+    name: grafana
+    state: present
+
+- name: Enable and Start Grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+# --- Firewall ---
+- name: Open Firewall Ports (Server)
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - 9090/tcp  # Prometheus
+    - 3100/tcp  # Loki
+    - 3000/tcp  # Grafana

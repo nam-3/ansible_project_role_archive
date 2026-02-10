@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solution Omakase | H-CMP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .blue-gradient {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+        }
+
+        .card-active {
+            border: 2px solid #2563eb !important;
+            background-color: #eff6ff !important;
+            transform: scale(1.02);
+        }
+
+        .node-enter {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .console-font {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .shake {
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
+        }
+
+        /* 패키지 그리드 선택 스타일 */
+        .pkg-checkbox:checked+div {
+            background-color: #eff6ff;
+            border-color: #2563eb;
+            color: #1e40af;
+        }
+
+        .pkg-checkbox:checked+div .icon-check {
+            display: block;
+        }
+    </style>
+</head>
+<style>
+    /* 패키지 선택 애니메이션 */
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .animate-scale-in {
+        animation: scaleIn 0.2s ease-out;
+    }
+
+    /* 선택된 카드 강조 */
+    .card-active {
+        border-color: #3b82f6 !important;
+        background-color: #eff6ff !important;
+        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* 아키텍처 노드 애니메이션 */
+    .node-enter {
+        transition: all 0.3s ease;
+    }
+</style>
+
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+    <div id="landing-page" class="min-h-screen flex flex-col bg-white overflow-y-auto">
+        <nav class="px-8 py-5 border-b flex justify-between items-center sticky top-0 bg-white/90 z-50">
+            <div class="flex items-center gap-2 font-black text-2xl text-blue-700 cursor-pointer"
+                onclick="location.reload()">
+                <i data-lucide="chef-hat"></i> Solution Omakase
+            </div>
+            <div class="flex gap-6 items-center">
+                <button onclick="openLoginModal()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-bold transition shadow-lg">Console
+                    로그인</button>
+            </div>
+        </nav>
+        <main class="flex-1 flex flex-col items-center justify-center text-center px-4 py-20">
+            <span
+                class="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black mb-6 border border-blue-100 uppercase tracking-widest italic">DevOps
+                Engineering Platform</span>
+            <h1 class="text-5xl md:text-7xl font-extrabold text-slate-900 mb-8 leading-[1.1]">Just Order,<br><span
+                    class="text-blue-600 italic">We Serve Infrastructure.</span></h1>
+            <p class="text-slate-500 text-lg md:text-xl max-w-2xl mb-12 leading-relaxed break-keep">복잡한 설정 없이
+                <strong>3-Tier 아키텍처 템플릿</strong>을 선택하세요.<br>H-CMP가 최적의 하이브리드 클라우드 인프라를 자동으로 설계합니다.
+            </p>
+            <button onclick="openLoginModal()"
+                class="blue-gradient text-white text-xl font-bold px-12 py-5 rounded-2xl shadow-xl hover:shadow-blue-200 transition-all flex items-center gap-2 group active:scale-95">프로젝트
+                생성하기 <i data-lucide="chevron-right" class="group-hover:translate-x-1 transition"></i></button>
+        </main>
+    </div>
+
+    <div id="login-modal"
+        class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4 bg-slate-900/60 backdrop-blur-sm fade-in">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-8 text-center relative">
+            <button onclick="closeLoginModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i
+                    data-lucide="x"></i></button>
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i data-lucide="lock" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-black text-slate-900 mb-2">Console Login</h2>
+            <p class="text-sm text-slate-500 mb-8">계정 정보를 입력해 주세요.</p>
+            <div class="space-y-4 text-left">
+                <div><label class="block text-xs font-bold text-slate-500 mb-1">ID</label><input type="text"
+                        id="login_id"
+                        class="w-full border border-slate-300 rounded-lg px-4 py-3 font-bold focus:border-blue-500 outline-none"
+                        placeholder="admin"></div>
+                <div><label class="block text-xs font-bold text-slate-500 mb-1">PASSWORD</label><input type="password"
+                        id="login_pw" onkeydown="if(event.key==='Enter') tryLogin()"
+                        class="w-full border border-slate-300 rounded-lg px-4 py-3 font-bold focus:border-blue-500 outline-none"
+                        placeholder="••••"></div>
+            </div>
+            <button onclick="tryLogin()" id="btn-login"
+                class="w-full blue-gradient text-white py-4 rounded-xl font-bold mt-8 shadow-lg hover:bg-blue-700 transition">로그인
+                하기</button>
+            <p class="mt-6 text-sm text-slate-500">
+                아직 계정이 없으신가요?
+                <a href="/signup" class="text-blue-600 font-bold hover:underline ml-1">가입 신청하기</a>
+            </p>
+        </div>
+    </div>
+
+    <div id="settings-modal"
+        class="hidden fixed inset-0 z-[100] flex items-center justify-center px-4 bg-slate-900/60 backdrop-blur-sm fade-in">
+        <div
+            class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden p-8 relative max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-slate-900 flex items-center gap-2"><i data-lucide="settings"
+                        class="text-slate-500"></i> Admin Settings & Analytics</h2>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600"><i
+                        data-lucide="x"></i></button>
+            </div>
+            <div class="space-y-8">
+                <div class="bg-slate-900 text-white p-5 rounded-xl shadow-lg">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i> System Analytics
+                    </h3>
+                    <div class="grid grid-cols-3 gap-6 text-center divide-x divide-slate-700">
+                        <div>
+                            <p class="text-slate-400 text-xs mb-1">Total Projects</p>
+                            <p class="text-2xl font-black text-emerald-400" id="stat_total">0</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-400 text-xs mb-1">vCPU Usage</p>
+                            <div class="flex justify-center items-end gap-1">
+                                <p class="text-2xl font-black text-blue-400" id="stat_vcpu">0</p><span
+                                    class="text-xs text-slate-500 mb-1" id="stat_vcpu_max">/ 100</span>
+                            </div>
+                            <div class="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div id="bar_vcpu" class="h-full bg-blue-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-slate-400 text-xs mb-1">Memory Usage</p>
+                            <div class="flex justify-center items-end gap-1">
+                                <p class="text-2xl font-black text-purple-400" id="stat_mem">0</p><span
+                                    class="text-xs text-slate-500 mb-1" id="stat_mem_max">/ 256</span>
+                            </div>
+                            <div class="w-full bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div id="bar_mem" class="h-full bg-purple-500 transition-all duration-500"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label class="flex justify-between items-center cursor-pointer">
+                            <div><span class="block text-sm font-bold text-slate-800">Maintenance Mode</span><span
+                                    class="text-xs text-slate-500">Block new requests</span></div>
+                            <div class="relative inline-flex items-center cursor-pointer"><input type="checkbox"
+                                    id="set_maint_mode" class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label class="block text-xs font-bold text-slate-500 mb-2">System Announcement (Banner)</label>
+                        <input type="text" id="set_notice"
+                            class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:border-blue-500 outline-none"
+                            placeholder="e.g. Scheduled Maintenance 22:00">
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Resource Quotas</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-500 mb-1">Max vCPU</label><input
+                                type="number" id="set_max_vcpu"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:border-blue-500 outline-none">
+                        </div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-1">Max Mem (GB)</label><input
+                                type="number" id="set_max_mem"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Target Infrastructure
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs font-bold text-slate-500 mb-1">vCenter IP</label><input
+                                type="text" id="set_vcenter"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:border-blue-500 outline-none">
+                        </div>
+                        <div><label class="block text-xs font-bold text-slate-500 mb-1">ESXi IP</label><input
+                                type="text" id="set_esxi"
+                                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xs font-black text-red-500 uppercase tracking-widest mb-1">Danger Zone</h3>
+                        <p class="text-[10px] text-slate-400">Delete all project history data permanently.</p>
+                    </div>
+                    <button onclick="factoryReset()"
+                        class="border border-red-200 text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg font-bold transition flex items-center gap-2 text-xs"><i
+                            data-lucide="trash-2" class="w-3 h-3"></i> Factory Reset</button>
+                </div>
+                <div class="pt-2">
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Admin Password</label>
+                    <input type="password" id="set_admin_pw"
+                        class="w-full border border-slate-300 bg-slate-50 rounded-lg px-3 py-2 text-sm focus:border-slate-500 outline-none"
+                        placeholder="Confirm password">
+                    <button onclick="saveSettings()" id="btn-save-settings"
+                        class="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition mt-3 flex justify-center items-center gap-2"><i
+                            data-lucide="save"></i> Save Configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-page" class="hidden min-h-screen flex flex-col fade-in relative">
+        <div id="notice-banner"
+            class="hidden bg-amber-100 border-b border-amber-200 text-amber-800 px-4 py-2 text-center text-xs font-bold flex items-center justify-center gap-2">
+            <i data-lucide="megaphone" class="w-4 h-4"></i> <span id="notice-text"></span>
+        </div>
+
+        <header class="bg-blue-800 text-white px-8 py-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center gap-4">
+                <button onclick="location.reload()" class="hover:bg-blue-700 p-2 rounded-lg transition"><i
+                        data-lucide="layout-grid"></i></button>
+                <h1 class="text-lg font-black tracking-tight">SOL-MAKASE CONSOLE</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex items-center gap-3 bg-blue-900/50 border border-blue-500/30 px-4 py-2 rounded-lg shadow-inner">
+                    <div class="flex items-center gap-2 text-blue-200">
+                        <i data-lucide="clock" class="w-4 h-4 animate-pulse"></i>
+                        <span id="session-timer"
+                            class="font-mono text-white text-sm font-bold tracking-wider">60:00</span>
+                        <button onclick="extendSession()"
+                            class="text-blue-300 hover:text-white transition p-1 hover:bg-blue-600/30 rounded"
+                            title="로그인 연장 (1시간)"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div class="h-4 w-px bg-blue-500/30"></div>
+                    <button onclick="logout()"
+                        class="flex items-center gap-1.5 text-xs font-bold text-red-300 hover:text-white transition group"><i
+                            data-lucide="log-out" class="w-3 h-3 group-hover:translate-x-0.5 transition"></i>
+                        LOGOUT</button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden md:block">
+                        <p id="user-role-display" class="text-[10px] text-blue-300 font-bold uppercase tracking-widest">
+                            Administrator</p>
+                        <p id="user-name-display" class="text-xs font-bold text-white uppercase">User Name</p>
+                        <p class="text-xs font-bold">Session Active</p>
+                    </div>
+                    <div id="user-avatar"
+                        class="w-9 h-9 rounded-full bg-blue-600 border-2 border-blue-400 flex items-center justify-center shadow-lg font-black text-sm">
+                        A</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+            <nav class="w-full lg:w-20 bg-white border-r flex lg:flex-col items-center py-6 gap-8 border-slate-200">
+                <i onclick="location.reload()" data-lucide="home"
+                    class="w-6 h-6 text-blue-600 cursor-pointer hover:scale-110 transition" title="홈으로"></i>
+                <i onclick="location.href='/monitoring'" data-lucide="activity"
+                    class="w-6 h-6 text-slate-400 hover:text-blue-600 cursor-pointer hover:scale-110 transition"
+                    title="자원 모니터링"></i>
+                <i onclick="location.href='/history'" data-lucide="server"
+                    class="w-6 h-6 text-slate-400 hover:text-blue-600 cursor-pointer hover:scale-110 transition"
+                    title="주문 내역"></i>
+                <i onclick="location.href='/admin_users'" data-lucide="user-round-cog"
+                    class="admin-only w-6 h-6 text-slate-400 hover:text-blue-600 cursor-pointer hover:scale-110 transition"
+                    title="사용자 승인 (관리자 전용)"></i>
+                <i onclick="openSettingsModal()" data-lucide="settings"
+                    class="admin-only w-6 h-6 text-slate-400 hover:text-blue-600 cursor-pointer hover:scale-110 transition mt-auto"
+                    title="설정 (관리자 전용)"></i>
+            </nav>
+
+            <main class="flex-1 p-8 overflow-y-auto bg-slate-50">
+                <div class="max-w-5xl mx-auto space-y-8 pb-20">
+                    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Step 01. Project
+                            Metadata</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-2">Service Name <span
+                                        class="text-red-500">*</span></label>
+                                <input type="text" id="svc_name" oninput="validateName(); updateArchitecture();"
+                                    placeholder="e.g. core-banking-web"
+                                    class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-600 transition font-bold text-blue-900">
+                                <p id="name_err"
+                                    class="hidden text-[11px] text-red-500 font-bold mt-2 flex items-center gap-1"><i
+                                        data-lucide="alert-circle" class="w-3 h-3"></i> 영문 소문자, 숫자, 하이픈(-)만 가능</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-2">Environment</label>
+                                <select id="env_type" onchange="updateArchitecture()"
+                                    class="w-full border border-slate-200 rounded-xl px-4 py-3 outline-none font-bold text-slate-700 bg-white">
+                                    <option value="dev">Development (Dev)</option>
+                                    <option value="stg">Staging (Stg)</option>
+                                    <option value="prd">Production (Prd)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Step 02. Quick
+                            Start Templates</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div id="tpl-single" onclick="applyTemplate('single')"
+                                class="bg-white p-5 rounded-2xl border border-slate-200 cursor-pointer hover:border-blue-300 transition group shadow-sm flex flex-col gap-2">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="bg-slate-100 p-2 rounded-lg group-hover:bg-blue-100 transition"><i
+                                            data-lucide="box"
+                                            class="w-5 h-5 text-slate-600 group-hover:text-blue-600"></i></div><span
+                                        class="font-bold text-slate-700">Single Tier</span>
+                                </div>
+                                <p class="text-xs text-slate-500 leading-relaxed">개발 및 테스트용 단일 서버 환경입니다.</p>
+                            </div>
+                            <div id="tpl-3tier" onclick="applyTemplate('3tier')"
+                                class="bg-white p-5 rounded-2xl border border-slate-200 cursor-pointer hover:border-blue-300 transition group shadow-sm flex flex-col gap-2 relative overflow-hidden card-active">
+                                <div
+                                    class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">
+                                    RECOMMENDED</div>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="bg-slate-100 p-2 rounded-lg group-hover:bg-blue-100 transition"><i
+                                            data-lucide="layers"
+                                            class="w-5 h-5 text-slate-600 group-hover:text-blue-600"></i></div><span
+                                        class="font-bold text-slate-700">Standard 3-Tier</span>
+                                </div>
+                                <p class="text-xs text-slate-500 leading-relaxed">Web-App-DB가 분리된 표준 아키텍처입니다.</p>
+                            </div>
+                            <div id="tpl-ha" onclick="applyTemplate('ha')"
+                                class="bg-white p-5 rounded-2xl border border-slate-200 cursor-pointer hover:border-blue-300 transition group shadow-sm flex flex-col gap-2">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="bg-slate-100 p-2 rounded-lg group-hover:bg-blue-100 transition"><i
+                                            data-lucide="zap"
+                                            class="w-5 h-5 text-slate-600 group-hover:text-blue-600"></i></div><span
+                                        class="font-bold text-slate-700">High Performance</span>
+                                </div>
+                                <p class="text-xs text-slate-500 leading-relaxed">대규모 트래픽 처리를 위한 확장 구성입니다.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Step 03.
+                            Infrastructure & Software Stack</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                            <div class="md:col-span-5 space-y-6">
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><i
+                                            data-lucide="users" class="w-4 h-4 text-blue-600"></i> Traffic / Scale
+                                        Rule</label>
+                                    <select id="traffic_level" onchange="resetTemplateSelection(); updateArchitecture()"
+                                        class="w-full p-3 bg-slate-50 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-blue-200 transition">
+                                        <option value="low">Low (Single Node)</option>
+                                        <option value="mid" selected>Medium (Multi Node)</option>
+                                        <option value="high">High (Scale-out)</option>
+                                    </select>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 text-sm font-bold text-slate-700"><i
+                                            data-lucide="activity" class="w-4 h-4 text-emerald-600"></i> Availability
+                                        (HA)</label>
+                                    <select id="ha_level" onchange="resetTemplateSelection(); updateArchitecture()"
+                                        class="w-full p-3 bg-slate-50 border rounded-xl font-medium text-sm outline-none focus:ring-2 focus:ring-emerald-200 transition">
+                                        <option value="single">Single Node</option>
+                                        <option value="ha" selected>HA (Active-Standby)</option>
+                                    </select>
+                                </div>
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Target
+                                        Network</span>
+                                    <div id="dynamic-network" class="mt-2 space-y-1">
+                                        <div class="flex justify-between text-[11px] font-mono"><span
+                                                class="text-slate-500">Subnet</span><span
+                                                class="text-slate-800">172.16.10.0/24</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="md:col-span-7">
+                                <div class="flex justify-between items-center mb-4">
+                                    <span
+                                        class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Installable
+                                        Packages (Select)</span>
+                                    <span
+                                        class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-full cursor-pointer hover:bg-blue-100 transition"
+                                        onclick="resetSoftware()">Reset All</span>
+                                </div>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-3" id="package-grid"></div>
+
+                                <div class="mt-6 pt-6 border-t border-slate-100">
+                                    <span
+                                        class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Selected
+                                        Components</span>
+                                    <div id="selected-pkg-list" class="flex flex-wrap gap-2 min-h-[32px]">
+                                        <span class="text-xs text-slate-400 italic">No packages selected</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section
+                        class="bg-slate-900 text-white p-6 rounded-2xl shadow-xl border border-slate-700 relative overflow-hidden mt-8">
+                        <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="server"
+                                class="w-32 h-32"></i></div>
+                        <h2 class="text-xs font-black text-blue-400 uppercase tracking-widest mb-6 relative z-10">Step
+                            04. Generated Architecture Preview</h2>
+                        <div class="relative z-10 flex flex-col items-center gap-6 py-4">
+                            <div id="layer-lb" class="hidden flex flex-col items-center w-full animate-fade-in">
+                                <span class="text-[10px] text-slate-500 mb-2 uppercase tracking-tighter">Tier 1.
+                                    Presentation (LB)</span>
+                                <div
+                                    class="bg-emerald-600/20 p-3 rounded-xl border border-emerald-500/50 flex items-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                    <i data-lucide="network" class="w-5 h-5 text-emerald-400"></i>
+                                    <span class="text-sm font-bold text-emerald-50">L4 HA Proxy Cluster</span>
+                                </div>
+                                <div class="h-6 w-0.5 bg-gradient-to-b from-emerald-500/50 to-slate-700 my-1"></div>
+                            </div>
+
+                            <div class="flex flex-col items-center w-full">
+                                <span class="text-[10px] text-slate-500 mb-2 uppercase tracking-tighter">Tier 2.
+                                    Application (Web/WAS)</span>
+                                <div class="flex gap-4 justify-center flex-wrap" id="layer-web"></div>
+                            </div>
+
+                            <div class="h-6 w-0.5 bg-slate-700"></div>
+
+                            <div class="flex flex-col items-center w-full">
+                                <span class="text-[10px] text-slate-500 mb-2 uppercase tracking-tighter">Tier 3. Data
+                                    (Database)</span>
+                                <div class="flex gap-4 justify-center flex-wrap" id="layer-db"></div>
+                            </div>
+
+                            <div id="layer-dr"
+                                class="hidden mt-6 pt-6 border-t border-dashed border-slate-700 w-full text-center">
+                                <span
+                                    class="text-[10px] text-rose-400 uppercase font-bold tracking-widest mb-3 block">Disaster
+                                    Recovery Strategy</span>
+                                <div
+                                    class="inline-flex bg-rose-500/10 p-3 rounded-xl border border-rose-500/30 items-center gap-2 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.1)]">
+                                    <i data-lucide="cloud-lightning" class="w-4 h-4"></i>
+                                    <span class="text-xs font-bold">Cross-Region Standby Ready</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+
+            <aside
+                class="w-full lg:w-96 bg-white border-l border-slate-200 flex flex-col sticky top-0 h-screen shadow-xl z-20">
+                <div id="summary-panel" class="flex flex-col h-full p-6">
+                    <h3 class="text-lg font-black text-slate-900 mb-6 flex items-center gap-2 italic"><i
+                            data-lucide="shopping-cart" class="text-blue-600"></i> Configuration Summary</h3>
+                    <div class="flex-1 space-y-6 overflow-y-auto custom-scrollbar">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Selected
+                                Packages</p>
+                            <div id="selected-pkg-list" class="flex flex-wrap gap-2 mb-4"><span
+                                    class="text-xs text-slate-400">None</span></div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Resource
+                                Manifest</p>
+                            <div class="border border-slate-200 rounded-lg overflow-hidden text-xs">
+                                <table class="w-full text-left">
+                                    <thead class="bg-slate-50 text-slate-500 font-bold">
+                                        <tr>
+                                            <th class="p-2 border-b">Instance</th>
+                                            <th class="p-2 border-b">Ansible Role</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="manifest-body" class="divide-y divide-slate-100"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="space-y-3 text-sm border-t pt-4">
+                            <div class="flex justify-between items-center text-slate-500"><span>Architecture</span><span
+                                    id="sum_type" class="font-bold text-slate-900">Standard 3-Tier</span></div>
+                            <div class="flex justify-between items-center text-slate-500"><span>Total vCPU</span><span
+                                    id="sum_vcpu" class="font-bold text-blue-600">4 Core</span></div>
+                            <div class="flex justify-between items-center text-slate-500"><span>HA Strategy</span><span
+                                    id="sum_ha" class="font-bold text-emerald-600">Active-Standby</span></div>
+                        </div>
+                    </div>
+                    <div class="pt-6 mt-auto"><button onclick="startProvision()" id="btn-provision"
+                            class="w-full blue-gradient text-white py-4 rounded-xl font-black text-md shadow-lg shadow-blue-200 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"><i
+                                data-lucide="rocket"></i> START PROVISIONING</button></div>
+                </div>
+                <div id="console-panel"
+                    class="hidden flex-col h-full bg-slate-900 text-white p-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-8 opacity-10 pointer-events-none"><i data-lucide="terminal"
+                            class="w-40 h-40"></i></div>
+                    <h3 class="text-lg font-black text-white mb-6 flex items-center gap-2 relative z-10"><span
+                            class="w-2 h-2 bg-emerald-500 rounded-full blink"></span> Deploying...</h3>
+                    <div class="flex-1 overflow-y-auto space-y-6 relative z-10 console-font text-xs">
+                        <div id="step-1" class="flex gap-3 opacity-50">
+                            <div class="flex flex-col items-center">
+                                <div id="step-1-icon"
+                                    class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                                    1</div>
+                                <div class="w-0.5 h-full bg-slate-700 mt-2"></div>
+                            </div>
+                            <div class="pb-6">
+                                <p class="font-bold text-slate-300">vCenter Authentication</p>
+                                <p class="text-slate-500 mt-1">Establishing session...</p>
+                            </div>
+                        </div>
+                        <div id="step-2" class="flex gap-3 opacity-50">
+                            <div class="flex flex-col items-center">
+                                <div id="step-2-icon"
+                                    class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                                    2</div>
+                                <div class="w-0.5 h-full bg-slate-700 mt-2"></div>
+                            </div>
+                            <div class="pb-6">
+                                <p class="font-bold text-slate-300">VM Resource Allocation</p>
+                                <p class="text-slate-500 mt-1">Booting VMs on ESXi...</p>
+                            </div>
+                        </div>
+                        <div id="step-3" class="flex gap-3 opacity-50">
+                            <div class="flex flex-col items-center">
+                                <div id="step-3-icon"
+                                    class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                                    3</div>
+                                <div class="w-0.5 h-full bg-slate-700 mt-2"></div>
+                            </div>
+                            <div class="pb-6">
+                                <p class="font-bold text-slate-300">Network Configuration</p>
+                                <p class="text-slate-500 mt-1">Attaching vSwitch & IPs...</p>
+                            </div>
+                        </div>
+                        <div id="step-4" class="flex gap-3 opacity-50">
+                            <div class="flex flex-col items-center">
+                                <div id="step-4-icon"
+                                    class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                                    4</div>
+                                <div class="w-0.5 h-full bg-slate-700 mt-2"></div>
+                            </div>
+                            <div class="pb-6">
+                                <p class="font-bold text-slate-300">Ansible Playbook Execution</p>
+                                <p id="step-4-log" class="text-slate-500 mt-1">Running role: ...</p>
+                            </div>
+                        </div>
+                        <div id="step-5" class="flex gap-3 opacity-50">
+                            <div class="flex flex-col items-center">
+                                <div id="step-5-icon"
+                                    class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px]">
+                                    5</div>
+                            </div>
+                            <div>
+                                <p class="font-bold text-slate-300">Software Stack Installation</p>
+                                <p id="step-5-log" class="text-slate-500 mt-1">Configuring Packages...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="console-log-area"
+                        class="h-64 bg-slate-950 rounded-lg p-3 overflow-y-auto mt-4 border border-slate-800 font-mono text-[11px]">
+                        <div class="text-slate-500 italic">Waiting for logs...</div>
+                    </div>
+                    <button onclick="location.reload()" id="btn-finish"
+                        class="hidden w-full bg-emerald-600 text-white py-3 rounded-xl font-bold mt-4 hover:bg-emerald-500">Go
+                        to Dashboard</button>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let config = { traffic: 'mid', ha: 'ha', dr: 'basic', template: 'single', packages: [], network: '' };
+
+        // [업데이트: Apache 삭제 -> 12개 아이템 (3x4 그리드)]
+        const availableSoftware = [
+            { id: 'nginx', name: 'Nginx', cat: 'Web' },
+            { id: 'haproxy', name: 'HAProxy', cat: 'L4/LB' },
+            // Apache 제거됨 (기획안 반영 + 12개 비율 맞춤)
+
+            { id: 'python', name: 'Python (Django)', cat: 'App' },
+            { id: 'tomcat', name: 'Tomcat', cat: 'WAS' },
+            { id: 'nodejs', name: 'Node.js', cat: 'App' },
+
+            { id: 'postgres', name: 'PostgreSQL', cat: 'DB' },
+            { id: 'mysql', name: 'MySQL', cat: 'DB' },
+            { id: 'redis', name: 'Redis', cat: 'Cache' },
+
+            { id: 'elasticsearch', name: 'Elasticsearch', cat: 'Log/Mon' },
+            { id: 'kibana', name: 'Kibana', cat: 'Log/Mon' },
+            { id: 'jenkins', name: 'Jenkins', cat: 'CI/CD' },
+
+            { id: 'docker', name: 'Docker', cat: 'Cont' }
+        ];
+
+        const SESSION_DURATION = 60 * 60 * 1000;
+        let timerInterval = null;
+
+        window.onload = function () {
+            renderPackageGrid();
+            applyTemplate('3tier');
+            checkSession();
+            // [중요: 보안 패치] 로그인 전에는 '공개(Public)' API만 호출하도록 수정
+            fetchPublicSettings();
+        };
+
+        // --- Fetch Public Settings (Notice) ---
+        // [수정됨] /api/admin/settings -> /api/public/settings 호출로 변경
+        // 이유: 인증되지 않은 사용자가 관리자 설정을 호출하는 보안 취약점 해결
+        async function fetchPublicSettings() {
+            try {
+                // (주의) 백엔드에 /api/public/settings 엔드포인트가 없으면 404가 뜰 수 있으나, 
+                // 보안 설계상 이렇게 호출하는 것이 맞음.
+                const res = await fetch('/api/public/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.system_notice) {
+                        const banner = document.getElementById('notice-banner');
+                        document.getElementById('notice-text').innerText = data.system_notice;
+                        banner.classList.remove('hidden');
+                    }
+                }
+            } catch (e) {
+                // 백엔드 미구현 시 조용히 무시
+                console.log("공개 설정 로드 실패 (백엔드 확인 필요)");
+            }
+        }
+
+        // --- Session ---
+        function checkSession() {
+            const expiresAt = localStorage.getItem('omakase_expires_at');
+            if (expiresAt) {
+                const now = Date.now();
+                if (now < expiresAt) { showDashboard(); startSessionTimer(expiresAt); }
+                else { logout(); }
+            }
+        }
+        function startSessionTimer(expiresAt) {
+            clearInterval(timerInterval);
+            function update() {
+                const now = Date.now(); const diff = expiresAt - now;
+                if (diff <= 0) { clearInterval(timerInterval); logout(); return; }
+                const minutes = Math.floor(diff / 60000); const seconds = Math.floor((diff % 60000) / 1000);
+                document.getElementById('session-timer').innerText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            update(); timerInterval = setInterval(update, 1000);
+        }
+        function extendSession() {
+            const newExpires = Date.now() + SESSION_DURATION;
+            localStorage.setItem('omakase_expires_at', newExpires);
+            startSessionTimer(newExpires);
+            alert("로그인 시간이 1시간으로 연장되었습니다.");
+        }
+        function logout() { localStorage.removeItem('omakase_expires_at'); location.reload(); }
+        function showDashboard() { document.getElementById('landing-page').classList.add('hidden'); document.getElementById('login-modal').classList.add('hidden'); document.getElementById('dashboard-page').classList.remove('hidden'); document.getElementById('dashboard-page').classList.add('flex'); window.scrollTo(0, 0); }
+
+        // --- Login ---
+        function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); document.getElementById('login_id').focus(); }
+        function closeLoginModal() { document.getElementById('login-modal').classList.add('hidden'); }
+        async function tryLogin() {
+            const id = document.getElementById('login_id').value;
+            const pw = document.getElementById('login_pw').value;
+            const btn = document.getElementById('btn-login');
+            if (!id || !pw) { alert("아이디와 비밀번호를 입력해주세요."); return; }
+
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin inline mr-2"></i> 로그인 중...`;
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const response = await fetch('api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: id, password: pw })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    localStorage.clear();
+
+                    localStorage.setItem('token', data.access_token);
+                    localStorage.setItem('user_role', data.role);
+                    localStorage.setItem('user_name', id);
+
+                    const expiresAt = Date.now() + SESSION_DURATION;
+                    localStorage.setItem('omakase_expires_at', expiresAt);
+
+                    applyUserInfo();
+                    restrictAdminFeatures();
+
+                    showDashboard();
+                    startSessionTimer(expiresAt);
+                    if (typeof fetchMyProjects === "function") fetchMyProjects();
+                } else { alert("❌ 로그인 실패"); btn.innerHTML = "로그인 하기"; btn.disabled = false; }
+            } catch (e) { alert("서버 연결 실패"); btn.innerHTML = "로그인 하기"; btn.disabled = false; }
+        }
+
+        function applyUserInfo() {
+            // 세션 만료 시간 체크 등 기존 로직 유지
+            const role = localStorage.getItem('user_role'); // 로그인 시 저장했다고 가정
+            const name = localStorage.getItem('user_name');
+
+            if (name) {
+                document.getElementById('user-role-display').innerText = role === 'admin' ? 'ADMINISTRATOR' : 'GENERAL USER';
+                document.getElementById('user-name-display').innerText = name;
+                document.getElementById('user-avatar').innerText = name.charAt(0).toUpperCase(); // 첫 글자 따기
+            }
+        }
+
+        function restrictAdminFeatures() {
+            const role = localStorage.getItem('user_role');
+            if (role !== 'admin') {
+                // 관리자가 아니면 'admin-only' 클래스를 가진 요소들을 모두 숨김
+                document.querySelectorAll('.admin-only').forEach(el => {
+                    el.style.display = 'none';
+                });
+
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+
+        // --- Admin & Stats ---
+        async function openSettingsModal() {
+            const pw = prompt("관리자 설정을 열려면 비밀번호를 입력하세요:", "");
+            if (pw !== "1234") { if (pw !== null) alert("비밀번호가 틀렸습니다."); return; }
+            document.getElementById('set_admin_pw').value = pw;
+            const modal = document.getElementById('settings-modal');
+
+            try {
+                // 관리자 설정은 인증된 상태에서만 호출 (Protected API)
+                const res = await fetch('/api/admin/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('set_vcenter').value = data.vcenter_ip || "";
+                    document.getElementById('set_esxi').value = data.esxi_ip || "";
+                    document.getElementById('set_maint_mode').checked = data.maintenance_mode;
+                    document.getElementById('set_max_vcpu').value = data.max_vcpu || 100;
+                    document.getElementById('set_max_mem').value = data.max_memory || 256;
+                    document.getElementById('set_notice').value = data.system_notice || "";
+                }
+                const statsRes = await fetch('/api/admin/stats');
+                if (statsRes.ok) {
+                    const stats = await statsRes.json();
+                    document.getElementById('stat_total').innerText = stats.total_projects;
+                    document.getElementById('stat_vcpu').innerText = stats.used_vcpu;
+                    document.getElementById('stat_mem').innerText = stats.used_memory;
+                    const maxVcpu = document.getElementById('set_max_vcpu').value || 100;
+                    const maxMem = document.getElementById('set_max_mem').value || 256;
+                    document.getElementById('stat_vcpu_max').innerText = `/ ${maxVcpu}`;
+                    document.getElementById('stat_mem_max').innerText = `/ ${maxMem}`;
+                    document.getElementById('bar_vcpu').style.width = Math.min((stats.used_vcpu / maxVcpu) * 100, 100) + "%";
+                    document.getElementById('bar_mem').style.width = Math.min((stats.used_memory / maxMem) * 100, 100) + "%";
+                }
+                modal.classList.remove('hidden');
+            } catch (e) { alert("통신 오류"); }
+        }
+
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        async function saveSettings() {
+            const btn = document.getElementById('btn-save-settings');
+            const token = localStorage.getItem('token'); // [필수] 토큰 가져오기
+
+            const data = {
+                vcenter_ip: document.getElementById('set_vcenter').value,
+                esxi_ip: document.getElementById('set_esxi').value,
+                maintenance_mode: document.getElementById('set_maint_mode').checked,
+                max_vcpu: parseInt(document.getElementById('set_max_vcpu').value) || 100,
+                max_memory: parseInt(document.getElementById('set_max_mem').value) || 256,
+                system_notice: document.getElementById('set_notice').value,
+                admin_password: document.getElementById('set_admin_pw').value
+            };
+
+            if (!data.admin_password) { alert("비밀번호가 필요합니다."); return; }
+
+            // 로딩 상태 표시
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin inline mr-2"></i> Saving...`;
+            btn.disabled = true;
+            lucide.createIcons();
+
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // [핵심] 인증 헤더 추가
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    alert("✅ 시스템 설정이 저장되었습니다.");
+                    closeSettingsModal();
+                    // 실시간 반영을 위해 public settings 다시 가져오기
+                    if (typeof fetchPublicSettings === "function") fetchPublicSettings();
+                } else {
+                    const err = await res.json();
+                    alert("❌ 저장 실패: " + (err.detail || "권한이 없습니다."));
+                }
+            } catch (e) {
+                alert("서버 연결 실패");
+            } finally {
+                // 버튼 복구
+                btn.innerHTML = `<i data-lucide="save" class="inline mr-2"></i> Save Configuration`;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+        async function factoryReset() {
+            const pw = prompt("🚨 경고: 모든 데이터가 삭제됩니다!\n진행하려면 관리자 비밀번호를 입력하세요:", "");
+            if (pw !== "1234") { if (pw !== null) alert("비밀번호 불일치"); return; }
+            try {
+                const res = await fetch('/api/admin/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: "admin", password: pw }) });
+                if (res.ok) { alert("🧹 초기화 완료!"); window.location.reload(); }
+                else { alert("실패"); }
+            } catch (e) { alert("오류"); }
+        }
+
+        // Logic
+        function validateName() {
+            const input = document.getElementById('svc_name'); const err = document.getElementById('name_err'); const btn = document.getElementById('btn-provision');
+            if (/[^a-z0-9-]/.test(input.value)) { err.classList.remove('hidden'); input.classList.add('border-red-500', 'shake'); btn.disabled = true; setTimeout(() => input.classList.remove('shake'), 300); }
+            else { err.classList.add('hidden'); input.classList.remove('border-red-500'); btn.disabled = false; }
+        }
+
+        function resetTemplateSelection() {
+            document.querySelectorAll('[id^="tpl-"]').forEach(el => el.classList.remove('card-active'));
+            document.getElementById('sum_type').innerText = "Custom Config";
+        }
+
+        function renderPackageGrid() {
+            document.getElementById('package-grid').innerHTML = availableSoftware.map(sw => `<label class="cursor-pointer group select-none"><input type="checkbox" name="pkg" value="${sw.id}" class="pkg-checkbox hidden" onchange="updateSelectedPackages()"><div class="border border-slate-200 rounded-lg p-3 hover:border-blue-400 transition flex items-center justify-between bg-white h-full shadow-sm group-hover:shadow-md"><div class="flex flex-col"><span class="text-xs font-bold text-slate-700 group-hover:text-blue-700">${sw.name}</span><span class="text-[10px] text-slate-400 font-mono">${sw.cat}</span></div><i data-lucide="check-circle" class="icon-check w-4 h-4 text-blue-600 hidden"></i></div></label>`).join('');
+            lucide.createIcons();
+        }
+
+        function updateSelectedPackages() {
+            const checkboxes = document.querySelectorAll('input[name="pkg"]:checked');
+            const listContainer = document.getElementById('selected-pkg-list');
+            config.packages = [];
+
+            if (checkboxes.length === 0) {
+                listContainer.innerHTML = '<span class="text-xs text-slate-400">None</span>';
+                return;
+            }
+
+            let html = '';
+            checkboxes.forEach(chk => {
+                const sw = availableSoftware.find(s => s.id === chk.value);
+                if (sw) {
+                    config.packages.push(sw.name);
+                    html += `
+                        <span class="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm animate-scale-in">
+                            <i data-lucide="package" class="w-3 h-3"></i>
+                            ${sw.name}
+                        </span>`;
+                }
+            });
+            listContainer.innerHTML = html;
+
+            lucide.createIcons();
+        }
+
+        function resetSoftware() {
+            document.querySelectorAll('input[name="pkg"]').forEach(el => el.checked = false);
+            updateSelectedPackages();
+        }
+
+        function applyTemplate(type) {
+            document.querySelectorAll('[id^="tpl-"]').forEach(el => el.classList.remove('card-active'));
+            document.getElementById(`tpl-${type}`).classList.add('card-active');
+
+            const ts = document.getElementById('traffic_level'),
+                hs = document.getElementById('ha_level'),
+                st = document.getElementById('sum_type');
+
+            if (type === 'single') {
+                config.template = 'single';
+                ts.value = 'low';
+                hs.value = 'single';
+                st.innerText = "Single Tier";
+                selectPackages(['nginx', 'mysql', 'python']);
+            }
+            else if (type === '3tier') {
+                config.template = 'standard';
+                ts.value = 'mid'; hs.value = 'ha';
+                st.innerText = "Standard 3-Tier";
+                selectPackages(['haproxy', 'nginx', 'postgres', 'python']);
+            }
+            else {
+                config.template = 'enterprise';
+                ts.value = 'high';
+                hs.value = 'ha';
+                st.innerText = "High Performance";
+                selectPackages(['haproxy', 'nginx', 'redis', 'postgres', 'elasticsearch', 'kibana']);
+            }
+            updateArchitecture();
+        }
+
+        function selectPackages(ids) {
+            resetSoftware();
+            ids.forEach(id => {
+                const chk = document.querySelector(`input[value="${id}"]`);
+                if (chk) chk.checked = true;
+            });
+            updateSelectedPackages();
+        }
+
+        function updateArchitecture() {
+            // 1. 설정값 동기화 및 기본 변수 선언
+            config.traffic = document.getElementById('traffic_level').value;
+            config.ha = document.getElementById('ha_level').value;
+
+            const layerWeb = document.getElementById('layer-web');
+            const layerDb = document.getElementById('layer-db');
+            const layerLb = document.getElementById('layer-lb');
+            const layerDr = document.getElementById('layer-dr');
+            const dynamicNetwork = document.getElementById('dynamic-network');
+
+            // 2. 노드 개수 계산 논리 (wc: Web Count, dc: DB Count)
+            let wc = config.traffic === 'mid' ? 2 : (config.traffic === 'high' ? 3 : 1);
+            if (config.ha === 'ha' && wc < 2) wc = 2;
+            let dc = (config.ha === 'ha' || config.traffic === 'high') ? 2 : 1;
+
+            // 3. 네트워크 정보 체크리스트 업데이트
+            let netItems = [];
+            if (config.traffic === 'low' && config.ha === 'single') {
+                netItems = ["Public Subnet (VLAN 10)", "Single Security Group"];
+            } else if (config.traffic === 'high') {
+                netItems = ["Multi-AZ Distribution", "High-Throughput VLAN 50, 60", "Direct Connect (DR)"];
+            } else {
+                netItems = ["Web-App-DB Separation", "VLAN 10-30 Applied", "Internal Firewall Rules"];
+            }
+
+            dynamicNetwork.innerHTML = netItems.map(item => `
+                <div class="flex items-center gap-2 animate-fade-in">
+                    <div class="bg-green-600 text-white rounded-[2px] p-[1px]">
+                        <i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>
+                    </div>
+                    <span class="text-[11px] font-mono text-slate-600">${item}</span>
+                </div>
+            `).join('');
+            config.network = netItems.join(", ");
+
+            // 4. 아키텍처 미리보기: WEB/WAS 레이어
+            let webHtml = '';
+            for (let i = 1; i <= wc; i++) {
+                webHtml += `
+                    <div class="bg-blue-600 p-3 rounded-lg shadow-lg border border-blue-400 flex flex-col items-center gap-1 w-24 node-enter">
+                        <i data-lucide="server" class="text-white w-6 h-6"></i>
+                        <span class="text-[10px] font-bold text-white">WEB-0${i}</span>
+                    </div>`;
+            }
+            layerWeb.innerHTML = webHtml;
+
+            // 5. 아키텍처 미리보기: DB 레이어
+            let dbHtml = `
+                <div class="bg-slate-700 p-3 rounded-lg shadow-lg border border-slate-500 flex flex-col items-center gap-1 w-24 node-enter">
+                    <i data-lucide="database" class="text-yellow-400 w-6 h-6"></i>
+                    <span class="text-[10px] font-bold text-white">DB-Master</span>
+                </div>`;
+            if (dc > 1) {
+                dbHtml += `
+                    <div class="bg-slate-700 p-3 rounded-lg shadow-lg border border-slate-500 flex flex-col items-center gap-1 w-24 opacity-80 node-enter">
+                        <i data-lucide="copy" class="text-slate-400 w-6 h-6"></i>
+                        <span class="text-[10px] font-bold text-white">DB-Slave</span>
+                    </div>`;
+            }
+            layerDb.innerHTML = dbHtml;
+
+            // 6. 레이어 가시성 조절
+            layerLb.classList.toggle('hidden', config.ha !== 'ha');
+            layerDr.classList.toggle('hidden', config.traffic !== 'high');
+
+            // 7. 요약 정보 및 매니페스트 업데이트
+            document.getElementById('sum_vcpu').innerText = (wc * 2 + dc * 4) + " vCore";
+            document.getElementById('sum_ha').innerText = config.ha === 'ha' ? "Active-Standby" : "Single Node";
+
+            let manifestHtml = '';
+            if (config.ha === 'ha') manifestHtml += `<tr><td class="p-2">LB-VRRP-01</td><td class="p-2 text-blue-600 font-bold">haproxy_lb</td></tr>`;
+            for (let i = 1; i <= wc; i++) manifestHtml += `<tr><td class="p-2">WEB-0${i}</td><td class="p-2 text-blue-600 font-bold">nginx_php</td></tr>`;
+            manifestHtml += `<tr><td class="p-2">DB-Master</td><td class="p-2 text-blue-600 font-bold">postgres_primary</td></tr>`;
+            if (dc > 1) manifestHtml += `<tr><td class="p-2">DB-Slave</td><td class="p-2 text-blue-600 font-bold">postgres_replica</td></tr>`;
+            document.getElementById('manifest-body').innerHTML = manifestHtml;
+
+            // 8. [가장 중요] 모든 HTML 변경 완료 후 아이콘 일괄 생성
+            lucide.createIcons();
+        }
+
+        async function startProvision() {
+            const name = document.getElementById('svc_name').value;
+            const btn = document.getElementById('btn-provision');
+            const org = btn.innerHTML;
+
+            const token = localStorage.getItem('token');
+
+            if (!name || /[^a-z0-9-]/.test(name)) {
+                alert("서비스 이름을 확인하세요.");
+                return;
+            }
+            btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin"></i> Processing...`;
+            btn.disabled = true;
+            lucide.createIcons();
+            try {
+                const res = await fetch('/api/provision', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        serviceName: name,
+                        config: config,
+                        userName: localStorage.getItem('user_name') || "admin_user",
+                        targetInfra: {}
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log("📦 백엔드 응답 데이터:", data);
+                    document.getElementById('summary-panel').classList.add('hidden');
+                    document.getElementById('console-panel').classList.remove('hidden');
+                    document.getElementById('console-panel').classList.add('flex');
+
+                    if (data.project_id) {
+                        console.log("🚀 웹소켓 연결 시도 중... ID:", data.project_id);
+                        startLogStreaming(data.project_id);
+                    }
+                    runStep(1);
+                } else {
+                    const err = await res.json();
+                    alert("❌ 실패: " + (err.detail || "알 수 없는 에러"));
+                    btn.innerHTML = org;
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                alert("연결 실패");
+                btn.innerHTML = org;
+                btn.disabled = false;
+            }
+            lucide.createIcons();
+        }
+
+        function startLogStreaming(projectId) {
+            const logConsole = document.getElementById('console-log-area'); // 로그 출력 영역
+            if (!logConsole) {
+                console.error("❌ 'console-log-area' 엘리먼트를 찾을 수 없습니다.");
+                return;
+            }
+
+            logConsole.innerHTML = ''; // 이전 로그 초기화
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${protocol}://${window.location.host}/ws/logs/${projectId}`;
+
+            console.log("🔗 접속 주소:", wsUrl);
+            const socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => console.log("✅ 웹소켓 서버와 연결되었습니다.");
+
+            socket.onmessage = function (event) {
+                const msg = event.data;
+                const logConsole = document.getElementById('console-log-area');
+
+                // [제어 신호 1] 진행 단계(Step 1~4) 동기화
+                if (msg.startsWith("::STEP_")) {
+                    const stepNum = msg.split("_")[1];
+                    console.log(`📍 Step ${stepNum} 활성화 신호 수신`);
+                    runStep(parseInt(stepNum)); // 기존에 정의된 runStep 함수 호출
+                    return;
+                }
+
+                // [제어 신호 2] 최종 배포 완료 처리
+                if (msg === "::DEPLOY_COMPLETE::") {
+                    const oldBtn = document.getElementById('btn-finish');
+                    if (oldBtn) oldBtn.style.display = 'none';
+
+                    if (typeof runStep === 'function') runStep(5);
+
+                    const successDiv = document.createElement('div');
+                    successDiv.className = "mt-6 p-6 bg-emerald-950/40 border border-emerald-500/50 rounded-2xl text-emerald-400 shadow-2xl shadow-emerald-500/10 fade-in";
+                    successDiv.innerHTML = `
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0 w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30">
+                                <i data-lucide="check" class="w-7 h-7 text-emerald-400"></i>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-xl font-bold mb-1 text-emerald-300">Infrastructure Ready!</h3>
+                                <p class="text-sm text-emerald-400/80 mb-6 leading-relaxed">
+                                    모든 인프라 자원 구성 및 소프트웨어 스택 설치가 완료되었습니다.<br>
+                                    이제 대시보드에서 실시간 모니터링을 시작할 수 있습니다.
+                                </p>
+                                <button onclick="location.href='/monitoring'" 
+                                        class="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-bold rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/20">
+                                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                                    Go to DashBoard
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    logConsole.appendChild(successDiv);
+
+                    // Lucide 아이콘 다시 렌더링
+                    if (window.lucide) lucide.createIcons();
+                    logConsole.scrollTop = logConsole.scrollHeight;
+                    return;
+                }
+
+                // [일반 로그] 실시간 텍스트 출력 로직 - 여기서만 요소를 생성합니다.
+                const newLogLine = document.createElement('div'); // 중복되지 않는 이름 사용
+                newLogLine.className = "text-slate-300 mb-1 border-l-2 border-slate-800 pl-3 font-mono text-[12px]";
+                newLogLine.innerText = msg;
+                logConsole.appendChild(newLogLine); // 생성한 요소를 정확히 추가
+
+                // 자동 스크롤 하단 유지
+                logConsole.scrollTop = logConsole.scrollHeight;
+            };
+
+            socket.onerror = function (error) {
+                console.error("❌ 웹소켓 연결 에러 발생:", error);
+                const errLine = document.createElement('div');
+                errLine.style.color = '#ff4d4d';
+                errLine.innerText = "[System Error] 웹소켓 연결에 실패했습니다. Nginx 설정을 확인하세요.";
+                logConsole.appendChild(errLine);
+            };
+
+            socket.onclose = function () {
+                const status = document.createElement('div');
+                status.style.color = '#4ade80'; // 성공 시 초록색 톤
+                status.style.marginTop = '10px';
+                status.innerText = "\n[System] 배포 프로세스가 종료되어 연결이 해제되었습니다.";
+                logConsole.appendChild(status);
+            };
+        }
+        function runStep(s) {
+
+            if (s === 3) {
+                const step2 = document.getElementById('step-2');
+                if (step2 && step2.classList.contains('opacity-50')) {
+                    runStep(2); // 2번 강제 활성화
+                }
+            }
+
+            const el = document.getElementById(`step-${s}`);
+            const ic = document.getElementById(`step-${s}-icon`);
+
+            if (!el || !ic) return; // 요소가 없으면 중단
+
+            // 1. 활성화 스타일 적용
+            el.classList.remove('opacity-50');
+            ic.classList.remove('bg-slate-700');
+            ic.classList.add('bg-emerald-600'); // 파란색(loading) 단계를 건너뛰고 바로 완료 처리
+            ic.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-white"></i>`;
+
+            // 2. 아이콘 렌더링
+            lucide.createIcons();
+
+            // 3. 마지막 5단계인 경우 상단 문구 변경 및 버튼 노출
+            if (s === 5) {
+                document.querySelector('#console-panel h3').innerHTML = `<span class="text-emerald-400">Deployed!</span>`;
+                const btn = document.getElementById('btn-finish');
+                if (btn) btn.classList.remove('hidden');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 사용자 정보 반영 (이름, 역할)
+            applyUserInfo();
+
+            // 2. 권한에 따른 메뉴 필터링
+            restrictAdminFeatures();
+
+            // 3. 모든 UI 변경 후 아이콘 최종 렌더링
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+            console.log("🚀 Dashboard Initialized for:", localStorage.getItem('user_name'));
+        });
+    </script>
+</body>
+
+</html>

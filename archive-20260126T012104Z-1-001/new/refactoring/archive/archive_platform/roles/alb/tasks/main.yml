@@ -1,0 +1,26 @@
+---
+# ALB Role: HAProxy for Web Load Balancing
+- name: Install HAProxy
+  dnf:
+    name: haproxy
+    state: present
+
+- name: Deploy HAProxy Configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    backup: yes
+  notify: Restart HAProxy
+
+- name: Start and Enable HAProxy
+  service:
+    name: haproxy
+    state: started
+    enabled: yes
+
+- name: Configure Firewall for HTTP
+  firewalld:
+    service: http
+    permanent: yes
+    state: enabled
+  notify: Reload Firewall

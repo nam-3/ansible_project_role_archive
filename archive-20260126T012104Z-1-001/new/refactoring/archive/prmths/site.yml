@@ -1,0 +1,6 @@
+---
+- name: Setup Monitoring System
+  hosts: all
+  become: true
+  roles:
+    - monitoring

@@ -67,7 +67,7 @@
   environment:
     PGPASSWORD: postgres_password
   tags: [db_init]
-  when: is_db_node and leader_check.status == 200
+  when: is_db_node and leader_check.status == 201
 
 - name: Create Application Database (cmp_db)
   shell: |

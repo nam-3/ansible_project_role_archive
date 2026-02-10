@@ -1,0 +1,46 @@
+---
+# 1. 실행 중인 모니터링 서비스 중지
+# (서비스가 설치되어 있지 않아도 에러가 발생하지 않도록 처리함)
+- name: Stop monitoring services if running
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+  loop:
+    - prometheus
+    - grafana-server
+    - loki
+    - promtail
+    - node_exporter
+    - node-exporter
+  register: service_stop_result
+  # 아래 조건: 에러가 났는데, 메시지에 'Could not find'(서비스 없음)가 포함되어 있다면 실패로 간주하지 않음
+  failed_when:
+    - service_stop_result.failed
+    - "'Could not find the requested service' not in service_stop_result.msg"
+    - "'not found' not in service_stop_result.msg"
+
+# 2. 패키지 삭제
+- name: Remove monitoring packages
+  ansible.builtin.dnf:
+    name:
+      - prometheus
+      - grafana
+      - loki
+      - promtail
+      - node_exporter
+      - node-exporter
+    state: absent
+
+# 3. 데이터 및 설정 디렉토리 삭제 (완전 초기화)
+- name: Remove data and config directories (Clean Install)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/loki
+    - /var/lib/prometheus
+    - /etc/loki
+    - /etc/promtail
+    # 아래 경로 주석 해제 시 Grafana 대시보드 및 설정도 모두 초기화됨
+    # - /var/lib/grafana
+    # - /etc/grafana

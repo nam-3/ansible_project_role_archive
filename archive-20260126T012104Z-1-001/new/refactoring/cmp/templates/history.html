@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>H-CMP | Order History</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+        .admin-mode-bg { background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%) !important; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <nav id="navbar" class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-50 transition-colors duration-500">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 font-black text-xl text-slate-800" id="nav-title">
+                <i data-lucide="history" class="text-blue-600" id="nav-icon"></i> 
+                <span>Provisioning History</span>
+            </div>
+            <span id="admin-badge" class="hidden bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black tracking-widest uppercase fade-in">
+                Administrator Mode
+            </span>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <button onclick="downloadCSV()" id="btn-csv" class="hidden flex items-center gap-2 text-xs font-bold text-white bg-green-600 hover:bg-green-700 transition px-3 py-2 rounded-lg shadow-sm fade-in">
+                <i data-lucide="download" class="w-4 h-4"></i> CSV Export
+            </button>
+            <div class="h-4 w-px bg-slate-300"></div>
+            <button onclick="toggleAdminMode()" id="btn-admin-toggle" class="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition px-3 py-2 rounded-lg border border-transparent hover:border-slate-200">
+                <i data-lucide="lock" class="w-4 h-4"></i> <span id="admin-text">Admin Login</span>
+            </button>
+            <div class="h-4 w-px bg-slate-300"></div>
+            <a href="/" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition" id="link-back">
+                <i data-lucide="arrow-left"></i> Back to Console
+            </a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-8">
+        <div class="flex justify-between items-end mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Project Order List</h1>
+                <p class="text-slate-500 text-sm mt-1">데이터베이스(PostgreSQL)에 저장된 실시간 프로비저닝 내역입니다.</p>
+            </div>
+            <button onclick="loadHistory()" class="bg-white border border-slate-300 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-50 flex items-center gap-2 transition shadow-sm">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i> 목록 새로고침
+            </button>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-bold">
+                    <tr>
+                        <th class="p-4 w-16">ID</th>
+                        <th class="p-4">Service Name</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">Allocated IP</th> <th class="p-4">Specs (Config)</th>
+                        <th class="p-4">Created At</th>
+                        <th class="p-4 w-20 text-center hidden admin-col">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="history-list" class="divide-y divide-slate-100 text-sm">
+                    </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        lucide.createIcons();
+        let isAdmin = false; 
+        let historyData = []; 
+
+        window.onload = loadHistory;
+
+        function toggleAdminMode() {
+            if (!isAdmin) {
+                const pw = prompt("관리자 비밀번호를 입력하세요:", "");
+                if (pw === "1234") enableAdminMode();
+                else if (pw !== null) alert("비밀번호가 틀렸습니다.");
+            } else {
+                disableAdminMode();
+            }
+        }
+
+        function enableAdminMode() {
+            isAdmin = true;
+            document.getElementById('navbar').classList.add('admin-mode-bg', 'text-white');
+            document.getElementById('nav-title').classList.remove('text-slate-800');
+            document.getElementById('nav-title').classList.add('text-white');
+            document.getElementById('nav-icon').classList.remove('text-blue-600');
+            document.getElementById('nav-icon').classList.add('text-white');
+            document.getElementById('admin-badge').classList.remove('hidden');
+            document.getElementById('btn-csv').classList.remove('hidden'); 
+            
+            const btn = document.getElementById('btn-admin-toggle');
+            btn.innerHTML = `<i data-lucide="unlock" class="w-4 h-4"></i> <span>Exit Admin</span>`;
+            btn.classList.add('text-white', 'hover:text-red-200');
+            btn.classList.remove('text-slate-500', 'hover:text-slate-800');
+            
+            const link = document.getElementById('link-back');
+            link.classList.add('text-red-200', 'hover:text-white');
+            link.classList.remove('text-slate-500', 'hover:text-blue-600');
+
+            renderTable(); 
+            lucide.createIcons();
+        }
+
+        function disableAdminMode() {
+            isAdmin = false;
+            document.getElementById('navbar').classList.remove('admin-mode-bg', 'text-white');
+            document.getElementById('nav-title').classList.add('text-slate-800');
+            document.getElementById('nav-title').classList.remove('text-white');
+            document.getElementById('nav-icon').classList.add('text-blue-600');
+            document.getElementById('nav-icon').classList.remove('text-white');
+            document.getElementById('admin-badge').classList.add('hidden');
+            document.getElementById('btn-csv').classList.add('hidden'); 
+
+            const btn = document.getElementById('btn-admin-toggle');
+            btn.innerHTML = `<i data-lucide="lock" class="w-4 h-4"></i> <span>Admin Login</span>`;
+            btn.classList.remove('text-white', 'hover:text-red-200');
+            btn.classList.add('text-slate-500', 'hover:text-slate-800');
+
+            const link = document.getElementById('link-back');
+            link.classList.remove('text-red-200', 'hover:text-white');
+            link.classList.add('text-slate-500', 'hover:text-blue-600');
+
+            renderTable();
+            lucide.createIcons();
+        }
+
+        async function loadHistory() {
+            const tbody = document.getElementById('history-list');
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">데이터를 불러오는 중...</td></tr>`;
+            
+            try {
+                const response = await fetch('/api/history');
+                if (response.ok) {
+                    historyData = await response.json();
+                    renderTable();
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-500">데이터 로딩 실패 (HTTP ${response.status})</td></tr>`;
+                }
+            } catch (error) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-red-500">백엔드 연결 실패: ${error.message}</td></tr>`;
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('history-list');
+            
+            if (!historyData || historyData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">저장된 주문 내역이 없습니다.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            historyData.forEach(item => {
+                const date = new Date(item.created_at).toLocaleString('ko-KR');
+                
+                // 데이터 안전 파싱 (문자열일 경우 대비)
+                let details = typeof item.details === 'string' ? JSON.parse(item.details) : item.details;
+                const conf = details.config || {};
+                const packages = details.packages || [];
+
+                // 스펙 계산
+                let vcpu = "4", ram = "8";
+                if(conf.traffic === 'low') { vcpu = "1"; ram = "2"; }
+                else if(conf.traffic === 'high') { vcpu = "8"; ram = "16"; }
+                
+                // IP 주소 뱃지 스타일
+                const ipDisplay = item.assigned_ip 
+                    ? `<span class="font-mono text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded border border-blue-100">${item.assigned_ip}</span>`
+                    : `<span class="text-slate-300 italic">Not Assigned</span>`;
+
+                // 패키지 요약 출력
+                const pkgText = packages.length > 0 ? packages.join(', ') : 'None';
+
+                const deleteBtn = isAdmin 
+                    ? `<td class="p-4 text-center admin-col"><button onclick="deleteProject(${item.id})" class="text-slate-400 hover:text-red-600 transition p-2 hover:bg-red-50 rounded-full"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>`
+                    : `<td class="hidden admin-col"></td>`;
+
+                html += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="p-4 font-mono text-slate-400">#${item.id}</td>
+                        <td class="p-4 font-bold text-slate-800">${item.service_name}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${item.status === 'COMPLETED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                                ${item.status}
+                            </span>
+                        </td>
+                        <td class="p-4">${ipDisplay}</td>
+                        <td class="p-4">
+                            <div class="text-xs font-bold text-slate-700">${vcpu} vCore / ${ram} GB</div>
+                            <div class="text-[10px] text-slate-400 truncate w-32" title="${pkgText}">📦 ${pkgText}</div>
+                        </td>
+                        <td class="p-4 text-slate-400 text-xs">${date}</td>
+                        ${deleteBtn}
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        async function deleteProject(id) {
+            if(!confirm(`정말로 프로젝트 #${id} 기록을 삭제하시겠습니까?`)) return;
+            try {
+                // [수정됨] main.py와 엔드포인트 일치시킴: /api/provision/{id}
+                const response = await fetch(`/api/provision/${id}`, { method: 'DELETE' });
+                if(response.ok) { alert("삭제되었습니다."); loadHistory(); }
+                else { alert("삭제 실패!"); }
+            } catch(e) { alert("오류 발생"); }
+        }
+
+        // [New: CSV Export]
+        function downloadCSV() {
+            if(historyData.length === 0) { alert("다운로드할 데이터가 없습니다."); return; }
+            
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM for Excel
+            csvContent += "ID,Service Name,Status,Created At,vCPU,Memory,HA,Packages,Target vCenter\n";
+
+            historyData.forEach(item => {
+                const conf = item.details.config || {};
+                const infra = item.details.infra || {};
+                const date = new Date(item.created_at).toISOString();
+                
+                let vcpu="1", ram="2";
+                if(conf.traffic==='mid'){vcpu="4"; ram="8";} 
+                else if(conf.traffic==='high'){vcpu="8"; ram="16";}
+                
+                const packages = conf.packages ? `"${conf.packages.join(', ')}"` : "";
+                
+                const row = [
+                    item.id,
+                    item.service_name,
+                    item.status,
+                    date,
+                    vcpu,
+                    ram,
+                    conf.ha || "single",
+                    packages,
+                    infra.vCenter || ""
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `provisioning_history_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

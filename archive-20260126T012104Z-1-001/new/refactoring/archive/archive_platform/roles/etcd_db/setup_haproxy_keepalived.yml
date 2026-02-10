@@ -1,0 +1,85 @@
+---
+- name: Setup HAProxy and Keepalived (Load Balancers Only)
+  hosts: loadbalancers
+  become: yes
+  vars:
+    # HAProxy 상태 페이지 접속 정보
+    haproxy_stats_port: 7000
+    haproxy_stats_user: admin
+    haproxy_stats_pass: password
+
+  tasks:
+    # ---------------------------------------------------------
+    # 1. 패키지 설치
+    # ---------------------------------------------------------
+    - name: Install HAProxy and Keepalived
+      ansible.builtin.dnf:
+        name:
+          - haproxy
+          - keepalived
+        state: present
+
+    # ---------------------------------------------------------
+    # 2. 커널 파라미터 설정 (VIP 바인딩 허용)
+    # ---------------------------------------------------------
+    - name: Allow binding non-local IP (for VIP)
+      ansible.builtin.sysctl:
+        name: net.ipv4.ip_nonlocal_bind
+        value: '1'
+        state: present
+        reload: yes
+
+    # ---------------------------------------------------------
+    # 3. 네트워크 인터페이스 자동 감지
+    # (hb_ip인 20번 대역 IP를 가진 인터페이스 이름을 찾음)
+    # ---------------------------------------------------------
+    - name: Detect Network Interface for hb_ip (20.x network)
+      set_fact:
+        vip_interface: "{{ item }}"
+      loop: "{{ ansible_interfaces }}"
+      when:
+        - hostvars[inventory_hostname]['ansible_' + item]['ipv4'] is defined
+        - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] == hb_ip
+
+    - name: Fail if interface not found
+      fail:
+        msg: "Could not find network interface for IP {{ hb_ip }}"
+      when: vip_interface is not defined
+
+    # ---------------------------------------------------------
+    # 4. 설정 파일 배포
+    # ---------------------------------------------------------
+    - name: Deploy HAProxy Configuration
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      notify: Restart HAProxy
+
+    - name: Deploy Keepalived Configuration
+      ansible.builtin.template:
+        src: templates/keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+      notify: Restart Keepalived
+
+    # ---------------------------------------------------------
+    # 5. 서비스 시작
+    # ---------------------------------------------------------
+    - name: Ensure services are started and enabled
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - haproxy
+        - keepalived
+
+  handlers:
+    - name: Restart HAProxy
+      ansible.builtin.service:
+        name: haproxy
+        state: restarted
+
+    - name: Restart Keepalived
+      ansible.builtin.service:
+        name: keepalived
+        state: restarted
