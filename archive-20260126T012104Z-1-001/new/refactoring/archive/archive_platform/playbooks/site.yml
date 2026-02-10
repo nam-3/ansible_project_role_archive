@@ -12,14 +12,14 @@
 #   Skip DB deployment:   ansible-playbook -i inventory/hosts.ini playbooks/site.yml --skip-tags db
 # ========================================
 
-# - name: 1. Configure Management Gateway
-#   hosts: gateway
-#   tags:
-#     - gateway
-#     - frontend
-#     - all
-#   roles:
-#     - gateway
+- name: 1. Configure Management Gateway
+  hosts: gateway
+  tags:
+    - gateway
+    - frontend
+    - all
+  roles:
+    - gateway
 
 - name: 2. Deploy Application Load Balancer (Web LB)
   hosts: alb

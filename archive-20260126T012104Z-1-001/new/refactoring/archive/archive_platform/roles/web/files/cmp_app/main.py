@@ -77,7 +77,7 @@ def decrypt_password(encrypted_password: str) -> str:
 logging.basicConfig(level=logging.INFO)
 db_logger = logging.getLogger("uvicorn")
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DB_URL", "postgresql://admin:Soldesk1.@192.168.40.15:5432/cmp_db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DB_URL", "postgresql://admin:Soldesk1.@192.168.20.100:5432/cmp_db")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, 

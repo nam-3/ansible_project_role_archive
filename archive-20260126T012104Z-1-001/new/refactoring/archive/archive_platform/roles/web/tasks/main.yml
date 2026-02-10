@@ -7,14 +7,9 @@
       - python3-pip
       - python3-devel
       - ansible-core
-      - redis
     state: present
 
-- name: Start and Enable Redis
-  service:
-    name: redis
-    state: started
-    enabled: yes
+
 
 - name: Install Python Libraries for CMP App
   pip:

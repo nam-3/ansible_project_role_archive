@@ -17,6 +17,21 @@
     name: redis
     state: present
 
+- name: Configure Redis to bind on external network
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: 'bind 127.0.0.1 {{ external_ip }}'
+    backup: yes
+  notify: Restart Redis
+
+- name: Disable Redis protected mode for internal network
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^protected-mode '
+    line: 'protected-mode no'
+  notify: Restart Redis
+
 - name: Start and Enable Redis
   service:
     name: redis

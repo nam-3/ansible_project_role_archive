@@ -16,34 +16,11 @@
   become: yes
   vars:
     # Interface Names (Modify if your VM has different names like eth1, eth2)
-    # Interface Names (Modify if your VM has different names like eth1, eth2)
-    # Default: NIC #2 (ens224) - Vlan 10
-    default_svc_iface: "ens224"
-    # Heartbeat: NIC #3 (ens256) - Vlan 20
+    svc_iface: "ens224"
     hb_iface: "ens256"
-    # Data: NIC #4 (ens224 -> ens256 -> ens288 is typical for VMware 4th NIC)
-    # WARNING: Verify this interface name on your actual VM
-    data_iface: "ens288" 
     
     # Common Netmask
     default_prefix: "24"
-
-  pre_tasks:
-    - name: Determine Service Interface (Web/ALB -> NIC #2)
-      set_fact:
-        target_svc_iface: "{{ default_svc_iface }}"
-      when: "'web' in group_names or 'alb' in group_names or 'gateway' in group_names"
-
-    - name: Determine Service Interface (DB/DBLB -> NIC #4)
-      set_fact:
-        target_svc_iface: "{{ data_iface }}"
-      when: "'db_cluster' in group_names or 'dblb' in group_names"
-
-    # Fallback if not in any specific group (use default)
-    - name: Set Default Service Interface if undefined
-      set_fact:
-        target_svc_iface: "{{ default_svc_iface }}"
-      when: target_svc_iface is undefined
 
   tasks:
     - name: Install NetworkManager-tui (nmcli)
@@ -52,37 +29,37 @@
         state: present
 
     # --------------------------------------------------------------------------
-    # 1. Configure Service IP / External IP
+    # 1. Configure Service IP / External IP (NIC #2 - ens224)
     # --------------------------------------------------------------------------
     
     # Case A: External IP (Gateway) - SKIPPED (Manually Configured)
-    # - name: "Configure NIC #2 ({{ target_svc_iface }}) - External Network"
+    # - name: "Configure NIC #2 ({{ svc_iface }}) - External Network"
     #   nmcli:
-    #     conn_name: "{{ target_svc_iface }}"
-    #     ifname: "{{ target_svc_iface }}"
+    #     conn_name: "{{ svc_iface }}"
+    #     ifname: "{{ svc_iface }}"
     #     type: ethernet
     #     ip4: "{{ external_ip }}/{{ default_prefix }}"
     #     state: present
     #   when: external_ip is defined
 
     # Case B: Service IP (Web, ALB, DB, DBLB)
-    - name: "Remove Default Connection for Service NIC ({{ target_svc_iface }})"
+    - name: "Remove Default Connection for NIC #2 ({{ svc_iface }})"
       shell: |
-        nmcli con show | grep "{{ target_svc_iface }}" | grep -v "{{ target_svc_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
+        nmcli con show | grep "{{ svc_iface }}" | grep -v "{{ svc_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
       when: service_ip is defined
       ignore_errors: yes
 
-    - name: "Configure Service NIC ({{ target_svc_iface }}) - Service/Data Network"
+    - name: "Configure NIC #2 ({{ svc_iface }}) - Service Network"
       nmcli:
-        conn_name: "{{ target_svc_iface }}"
-        ifname: "{{ target_svc_iface }}"
+        conn_name: "{{ svc_iface }}"
+        ifname: "{{ svc_iface }}"
         type: ethernet
         ip4: "{{ service_ip }}/{{ default_prefix }}"
         state: present
       when: service_ip is defined
 
-    - name: "Bring Up Service NIC ({{ target_svc_iface }})"
-      shell: nmcli con up "{{ target_svc_iface }}"
+    - name: "Bring Up NIC #2 ({{ svc_iface }})"
+      shell: nmcli con up "{{ svc_iface }}"
       when: service_ip is defined
 
     # --------------------------------------------------------------------------
