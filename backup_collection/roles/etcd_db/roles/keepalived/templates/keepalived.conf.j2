@@ -1,0 +1,7 @@
+vrrp_instance VI_1 {
+    state {{ state }}
+    interface {{ interface }}  # eth1(20대역) 등
+    virtual_ipaddress {
+        192.168.20.100/24
+    }
+}

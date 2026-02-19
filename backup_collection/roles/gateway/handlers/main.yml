@@ -1,0 +1,14 @@
+---
+- name: Restart Nginx
+  service:
+    name: nginx
+    state: restarted
+
+- name: Restart Redis
+  service:
+    name: redis
+    state: restarted
+
+- name: Reload Firewall
+  command: firewall-cmd --reload
+

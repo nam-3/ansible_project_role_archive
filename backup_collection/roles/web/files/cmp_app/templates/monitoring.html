@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>H-CMP | Resource Monitoring</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+
+    <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-2 font-black text-xl text-slate-800">
+            <i data-lucide="activity" class="text-blue-600"></i>
+            <span>My Resources</span>
+        </div>
+        <a href="/" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition">
+            <i data-lucide="arrow-left"></i> Back to Console
+        </a>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-8 fade-in">
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Real-time VM Monitoring</h1>
+                <p class="text-slate-500 text-sm mt-1">현재 로그인된 사용자(Admin)에게 할당된 VM 자원 현황입니다.</p>
+            </div>
+            <div
+                class="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
+                <span class="relative flex h-2 w-2"><span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span
+                        class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                Live Updating (5s)
+            </div>
+        </div>
+
+        <div id="vm-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </div>
+    </main>
+    <script>
+        // 아이콘 초기화
+        lucide.createIcons();
+
+        // 페이지 로드 시 실행될 로직 예시
+        // fetchPendingUsers(); 
+    </script>
+</body>
+
+</html>
+
+<script>
+    lucide.createIcons();
+
+    // [수정 1] 차트 인스턴스 관리 객체 추가 (메모리 누수 방지)
+    const chartRegistry = {};
+
+    async function fetchResources() {
+        const token = localStorage.getItem('token');
+        console.log("🔑 현재 발송하려는 토큰:", token);
+
+        if (!token) {
+            console.warn("인증 토큰이 없습니다. 로그인 페이지로 이동합니다.");
+            location.href = '/';
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/monitoring/my-resources', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // [핵심] 인증 헤더 추가
+                }
+            });
+
+            if (res.status === 401) {
+                console.error("인증 실패: 다시 로그인해주세요.");
+                // location.href = '/login'; // 필요 시 로그인 페이지로 리다이렉트
+                return;
+            }
+
+            const data = await res.json();
+            renderCards(data);
+        } catch (e) {
+            console.error("데이터 로드 실패", e);
+        }
+    }
+
+    // [수정 2] 렌더링 로직 최적화 (Diff 알고리즘 적용)
+    function renderCards(vms) {
+        const grid = document.getElementById('vm-grid');
+
+        // 데이터가 없을 때 처리
+        if (vms.length === 0) {
+            grid.innerHTML = `<div class="col-span-full text-center py-20 text-slate-400">할당된 VM이 없습니다.</div>`;
+            // 기존 차트 메모리 해제
+            Object.keys(chartRegistry).forEach(key => {
+                if (chartRegistry[key].cpu) chartRegistry[key].cpu.destroy();
+                if (chartRegistry[key].mem) chartRegistry[key].mem.destroy();
+                delete chartRegistry[key];
+            });
+            return;
+        }
+
+        // 1. 사라진 VM 정리 (Garbage Collection)
+        const currentVmNames = new Set(vms.map(vm => vm.vm_name));
+        Object.keys(chartRegistry).forEach(vmName => {
+            if (!currentVmNames.has(vmName)) {
+                // 차트 파괴 (메모리 해제)
+                chartRegistry[vmName].cpu.destroy();
+                chartRegistry[vmName].mem.destroy();
+                delete chartRegistry[vmName];
+                // DOM 제거
+                const card = document.getElementById(`card-${vmName}`);
+                if (card) card.remove();
+            }
+        });
+
+        // 2. 카드 생성 또는 업데이트
+        vms.forEach((vm) => {
+            // ID에 사용할 수 없는 공백 등을 처리
+            const safeName = vm.vm_name.replace(/\s+/g, '-');
+            const cardId = `card-${vm.vm_name}`;
+
+            if (chartRegistry[vm.vm_name]) {
+                // [Update] 이미 존재하면 차트 데이터만 업데이트 (DOM 재생성 X)
+                updateCard(vm, safeName);
+            } else {
+                // [Create] 없으면 새로 생성
+                createCard(grid, vm, safeName, cardId);
+            }
+        });
+
+        lucide.createIcons();
+    }
+
+    // 신규 카드 생성 함수
+    function createCard(grid, vm, safeName, cardId) {
+        const card = document.createElement('div');
+        card.id = cardId;
+        card.className = "bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition fade-in";
+        card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded">${vm.project_name}</span>
+                        <h3 class="text-lg font-bold text-slate-800 mt-1">${vm.vm_name}</h3>
+                        <p class="text-xs text-slate-400 font-mono">${vm.ip_address}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="window.open('/terminal?ip=${vm.ip_address}', '_blank')" class="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-lg transition shadow-sm" title="Web Terminal Connection">
+                            <i data-lucide="terminal-square" class="w-5 h-5"></i>
+                        </button>
+                        <div class="bg-green-100 text-green-700 p-2 rounded-lg"><i data-lucide="server" class="w-5 h-5"></i></div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="text-center">
+                        <canvas id="cpu-chart-${safeName}" height="100"></canvas>
+                        <p class="text-xs font-bold text-slate-500 mt-2">CPU</p>
+                        <p id="cpu-text-${safeName}" class="text-lg font-black text-slate-800">${vm.cpu_usage}%</p>
+                    </div>
+                    <div class="text-center">
+                        <canvas id="mem-chart-${safeName}" height="100"></canvas>
+                        <p class="text-xs font-bold text-slate-500 mt-2">Memory</p>
+                        <p id="mem-text-${safeName}" class="text-lg font-black text-slate-800">${vm.memory_usage}%</p>
+                    </div>
+                    <div class="text-center">
+                        <canvas id="disk-chart-${safeName}" height="100"></canvas>
+                        <p class="text-xs font-bold text-slate-500 mt-2">Disk</p>
+                        <p id="disk-text-${safeName}" class="text-lg font-black text-slate-800">${vm.disk_usage}%</p>
+                    </div>
+                </div>
+            `;
+        grid.appendChild(card);
+
+        // 차트 생성 후 레지스트리에 등록
+        chartRegistry[vm.vm_name] = {
+            cpu: drawChart(`cpu-chart-${safeName}`, vm.cpu_usage, '#3b82f6'),
+            mem: drawChart(`mem-chart-${safeName}`, vm.memory_usage, '#8b5cf6'),
+            disk: drawChart(`disk-chart-${safeName}`, vm.disk_usage, '#10b981')
+        };
+    }
+
+    // 기존 카드 데이터 갱신 함수
+    function updateCard(vm, safeName) {
+        // 텍스트 갱신
+        document.getElementById(`cpu-text-${safeName}`).innerText = `${vm.cpu_usage}%`;
+        document.getElementById(`mem-text-${safeName}`).innerText = `${vm.memory_usage}%`;
+        document.getElementById(`disk-text-${safeName}`).innerText = `${vm.disk_usage}%`;
+
+        // 차트 데이터 갱신
+        const charts = chartRegistry[vm.vm_name];
+        charts.cpu.data.datasets[0].data = [vm.cpu_usage, 100 - vm.cpu_usage];
+        charts.cpu.update();
+
+        charts.mem.data.datasets[0].data = [vm.memory_usage, 100 - vm.memory_usage];
+        charts.mem.update();
+
+        charts.disk.data.datasets[0].data = [vm.disk_usage, 100 - vm.disk_usage];
+        charts.disk.update();
+    }
+
+    // [수정 3] 차트 인스턴스를 반환하도록 변경
+    function drawChart(canvasId, value, color) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Used', 'Free'],
+                datasets: [{
+                    data: [value, 100 - value],
+                    backgroundColor: [color, '#f1f5f9'],
+                    borderWidth: 0,
+                    cutout: '75%'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                animation: { duration: 0 }
+            }
+        });
+    }
+
+    fetchResources();
+    setInterval(fetchResources, 5000);
+</script>
+</body>
+
+</html>

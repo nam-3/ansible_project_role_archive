@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Archive Platform - {{ inventory_hostname }}</title>
+</head>
+<body>
+    <h1>Archive Platform Web Server</h1>
+    <p>Hostname: {{ inventory_hostname }}</p>
+    <p>Service IP: {{ service_ip }}</p>
+    <p>Management IP: {{ ansible_host }}</p>
+    <hr>
+    <p>DB Connection: {{ dblb_vip }}:5432</p>
+</body>
+</html>

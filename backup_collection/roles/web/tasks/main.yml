@@ -1,0 +1,153 @@
+---
+# Web Role: Nginx Web Server
+- name: Install Nginx and Python Dependencies
+  dnf:
+    name:
+      - nginx
+      - python3-pip
+      - python3-devel
+      - ansible-core
+      - redis
+    state: present
+
+- name: Start and Enable Redis
+  service:
+    name: redis
+    state: started
+    enabled: yes
+
+- name: Install Python Libraries for CMP App
+  pip:
+    name:
+      - fastapi
+      - uvicorn
+      - sqlalchemy
+      - psycopg2-binary
+      - prometheus-client
+      - paramiko
+      - httpx
+      - "redis>=4.2.0"
+      - cryptography
+      - python-jose
+      - "pyvmomi>=6.7" 
+      - websockets
+    state: present
+
+- name: Install Ansible Galaxy Collections
+  command: ansible-galaxy collection install community.vmware
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+
+
+- name: Create Application Directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/cmp_app
+    - /opt/h-cmp
+
+- name: Deploy CMP Application Code
+  copy:
+    src: cmp_app/
+    dest: /opt/cmp_app/
+    mode: '0755'
+  notify: Restart Archive Web
+
+- name: Deploy Workload Configuration Playbook
+  copy:
+    src: configure_workload.yml
+    dest: /opt/h-cmp/configure_workload.yml
+    mode: '0644'
+
+- name: Deploy Orchestration Playbooks
+  copy:
+    src: ../../../playbooks/
+    dest: /opt/h-cmp/
+    mode: '0644'
+
+- name: Copy Admin Creation Script
+  copy:
+    src: create_admin.py
+    dest: /opt/cmp_app/create_admin.py
+    mode: '0755'
+
+- name: Initialize Admin User
+  shell: |
+    # Load system-wide environment variables (including SECRET_KEY)
+    source /etc/environment
+    
+    export DB_URL="postgresql://{{ db_user }}:{{ db_password }}@{{ dblb_vip }}:5432/{{ db_name }}"
+    export REDIS_HOST="{{ hostvars[groups['gateway'][0]]['external_ip'] }}"
+    # ENCRYPT_KEY and SECRET_KEY are loaded from /etc/environment (or .bashrc if manually driven)
+    
+    /usr/bin/python3 /opt/cmp_app/create_admin.py
+  args:
+    chdir: /opt/cmp_app
+  environment:
+    PYTHONPATH: /opt/cmp_app
+  ignore_errors: yes
+
+- name: Deploy Systemd Service for CMP App
+  template:
+    src: archive-web.service.j2
+    dest: /etc/systemd/system/archive-web.service
+  notify: Restart Archive Web
+
+
+- name: Ensure service env directory exists
+  file:
+    path: /etc/default
+    state: directory
+    mode: '0755'
+
+- name: Sync Keys from .bashrc to Service Env File
+  shell: |
+    # Source .bashrc to get the keys
+    source ~/.bashrc
+    
+    # Check if keys are set
+    if [ -z "$SECRET_KEY" ] || [ -z "$ENCRYPT_KEY" ]; then
+      echo "WARNING: SECRET_KEY or ENCRYPT_KEY not found in .bashrc"
+      # Don't exit here to allow partial setup, or enforce strict? 
+      # Let's enforce strict for security critical keys
+      # exit 1 
+    fi
+    
+    # Write to service env file
+    echo "SECRET_KEY=$SECRET_KEY" > /etc/default/archive-web
+    echo "ENCRYPT_KEY=$ENCRYPT_KEY" >> /etc/default/archive-web
+    chmod 600 /etc/default/archive-web
+  args:
+    executable: /bin/bash
+  notify: Restart Archive Web
+
+- name: Deploy Default Web Page
+  template:
+    src: index.html.j2
+    dest: /usr/share/nginx/html/index.html
+  notify: Restart Nginx
+
+- name: Deploy Nginx Configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/conf.d/web.conf
+  notify: Restart Nginx
+
+# Note: Application deployment (main.py, templates) is in separate cmp_app directory
+# This is example structure only - actual deployment would reference cmp_app
+
+- name: Start and Enable Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Configure Firewall for HTTP
+  firewalld:
+    service: http
+    permanent: yes
+    state: enabled
+  notify: Reload Firewall
+

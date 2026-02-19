@@ -1,0 +1,69 @@
+---
+# Gateway Role: Nginx Reverse Proxy (External -> Internal ALB)
+- name: Install Nginx
+  dnf:
+    name: nginx
+    state: present
+
+- name: Enable IP Forwarding (for routing between networks)
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    sysctl_set: yes
+
+- name: Install Redis
+  dnf:
+    name: redis
+    state: present
+
+- name: Configure Redis to bind on external network
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: 'bind 127.0.0.1 {{ external_ip }}'
+    backup: yes
+  notify: Restart Redis
+
+- name: Disable Redis protected mode for internal network
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^protected-mode '
+    line: 'protected-mode no'
+  notify: Restart Redis
+
+- name: Start and Enable Redis
+  service:
+    name: redis
+    state: started
+    enabled: yes
+
+- name: Deploy Parallel Nginx Config (Port 8080)
+  template:
+    src: nginx_proxy.conf.j2
+    dest: /etc/nginx/conf.d/new_archive_platform.conf
+  notify: Restart Nginx
+
+- name: Start and Enable Nginx
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Configure Firewall for HTTP/HTTPS/8080
+  firewalld:
+    service: "{{ item }}"
+    permanent: yes
+    state: enabled
+  loop:
+    - http
+    - https
+    - redis
+  notify: Reload Firewall
+
+- name: Open Port 8080 for New Platform
+  firewalld:
+    port: 8080/tcp
+    permanent: yes
+    state: enabled
+  notify: Reload Firewall

@@ -1,0 +1,120 @@
+---
+- name: Refresh Web App Environment Variables
+  hosts: web
+  become: yes
+  tasks:
+    # 1. .bashrc 파일에서 환경변수(시크릿 키)를 읽어와서 서비스 설정 파일에 기록하는 작업
+    - name: Sync Keys from .bashrc to Service Env File
+      shell: |
+        #!/bin/bash
+        # .bashrc 파일 경로 지정 (필요 시 사용자 홈 디렉토리 변경 가능)
+        BASHRC_PATH="$HOME/.bashrc"
+        
+        # .bashrc 파일이 존재하면 로드(source)하여 환경변수를 메모리에 올림
+        if [ -f "$BASHRC_PATH" ]; then
+            source "$BASHRC_PATH"
+        fi
+        
+        # 로드된 환경변수 중 키 값이 없는 경우 경고 출력
+        if [ -z "$SECRET_KEY" ]; then
+            echo "WARNING: SECRET_KEY not found in $BASHRC_PATH"
+        fi
+        if [ -z "$ENCRYPT_KEY" ]; then
+             echo "WARNING: ENCRYPT_KEY not found in $BASHRC_PATH"
+        fi
+        
+        # 서비스가 참조하는 환경설정 파일을 초기화 (기존 내용 삭제 후 새로 작성)
+        : > /etc/default/archive-web
+        
+        # 메모리에 로드된 키 값을 파일에 기록 (VAR=VALUE 형식)
+        if [ -n "$SECRET_KEY" ]; then
+            echo "SECRET_KEY=$SECRET_KEY" >> /etc/default/archive-web
+        fi
+        if [ -n "$ENCRYPT_KEY" ]; then
+            echo "ENCRYPT_KEY=$ENCRYPT_KEY" >> /etc/default/archive-web
+        fi
+        
+        # 보안을 위해 파일 권한을 600(소유자만 읽기/쓰기)으로 설정
+        chmod 600 /etc/default/archive-web
+        
+        echo "Environment file updated."
+      args:
+        executable: /bin/bash
+      register: env_update_result
+      changed_when: true
+
+    # 2. 작업 결과 디버깅 출력
+    - name: Show env update result
+      debug:
+        msg: "{{ env_update_result.stdout_lines }}"
+
+    # 3. 변경된 환경변수를 적용하기 위해 웹 애플리케이션 서비스 재시작
+    - name: Restart archive-web service
+      systemd:
+        name: archive-web
+        state: restarted
+        enabled: yes
+      register: service_restart
+
+    # 4. 서비스가 정상적으로 올라왔는지 상태 확인
+    - name: Verify Service Status
+      command: systemctl status archive-web
+      register: service_status
+      ignore_errors: yes
+
+    - name: Show Service Status
+      debug:
+        var: service_status.stdout_lines
+
+- name: Refresh Database Environment Variables
+  hosts: db_cluster
+  become: yes
+  tasks:
+    # 1. .bashrc 파일에서 환경변수(시크릿 키)를 읽어와서 DB 서비스용 설정 파일에 기록
+    - name: Sync Keys from .bashrc to Patroni Env File
+      shell: |
+        #!/bin/bash
+        BASHRC_PATH="$HOME/.bashrc"
+        
+        if [ -f "$BASHRC_PATH" ]; then
+            source "$BASHRC_PATH"
+        fi
+        
+        # 키 유효성 검사
+        if [ -z "$SECRET_KEY" ]; then echo "WARNING: SECRET_KEY not found"; fi
+        if [ -z "$ENCRYPT_KEY" ]; then echo "WARNING: ENCRYPT_KEY not found"; fi
+        
+        # /etc/default/patroni 파일 생성 및 초기화
+        : > /etc/default/patroni
+        
+        if [ -n "$SECRET_KEY" ]; then
+            echo "SECRET_KEY=$SECRET_KEY" >> /etc/default/patroni
+        fi
+        if [ -n "$ENCRYPT_KEY" ]; then
+            echo "ENCRYPT_KEY=$ENCRYPT_KEY" >> /etc/default/patroni
+        fi
+        
+        chmod 600 /etc/default/patroni
+        echo "Patroni env file updated."
+      args:
+        executable: /bin/bash
+      register: db_env_result
+      changed_when: true
+
+    # 2. Patroni 서비스 파일에 EnvironmentFile 설정 추가 (없을 경우에만)
+    - name: Add EnvironmentFile to Patroni Service
+      lineinfile:
+        path: /etc/systemd/system/patroni.service
+        insertafter: '^\[Service\]'
+        line: 'EnvironmentFile=-/etc/default/patroni'
+        state: present
+      notify: Restart Patroni
+
+  handlers:
+    - name: Restart Patroni
+      systemd:
+        name: patroni
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+
