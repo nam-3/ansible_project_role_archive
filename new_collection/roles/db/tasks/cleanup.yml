@@ -1,0 +1,58 @@
+---
+# DB Role Cleanup
+
+- name: Stop PostgreSQL Service
+  service:
+    name: postgresql
+    state: stopped
+  ignore_errors: yes
+  when: "'postgres' in packages_to_install | default([])"
+
+- name: Remove PostgreSQL Packages
+  dnf:
+    name:
+      - postgresql-server
+      - postgresql-contrib
+    state: absent
+  ignore_errors: yes
+  when: "'postgres' in packages_to_install | default([])"
+
+- name: Remove PostgreSQL Data Directory
+  file:
+    path: /var/lib/pgsql/data
+    state: absent
+  ignore_errors: yes
+  when: "'postgres' in packages_to_install | default([])"
+
+- name: Stop MariaDB Service
+  service:
+    name: mariadb
+    state: stopped
+  ignore_errors: yes
+  when: "'mariadb' in packages_to_install | default([])"
+
+- name: Remove MariaDB Packages
+  dnf:
+    name:
+      - mariadb-server
+    state: absent
+  ignore_errors: yes
+  when: "'mariadb' in packages_to_install | default([])"
+
+- name: Remove MariaDB Data Directory
+  file:
+    path: /var/lib/mysql
+    state: absent
+  ignore_errors: yes
+  when: "'mariadb' in packages_to_install | default([])"
+
+- name: Close DB firewall ports
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: disabled
+    immediate: yes
+  loop:
+    - 5432/tcp
+    - 3306/tcp
+  ignore_errors: yes

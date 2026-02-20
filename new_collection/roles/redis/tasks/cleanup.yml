@@ -1,0 +1,36 @@
+---
+# Redis Role Cleanup
+
+- name: Stop Redis Service
+  service:
+    name: redis
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Redis configuration overrides
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: 'bind 127.0.0.1'
+  ignore_errors: yes
+
+- name: Re-enable protected-mode
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^protected-mode '
+    line: 'protected-mode yes'
+  ignore_errors: yes
+
+- name: Remove Redis Package
+  dnf:
+    name: redis
+    state: absent
+  ignore_errors: yes
+
+- name: Close firewall ports
+  firewalld:
+    port: 6379/tcp
+    permanent: yes
+    state: disabled
+    immediate: yes
+  ignore_errors: yes

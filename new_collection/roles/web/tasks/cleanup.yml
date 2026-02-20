@@ -1,0 +1,51 @@
+---
+# Web Role Cleanup
+
+- name: Stop Archive Web Service
+  service:
+    name: archive-web
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Archive Web Environment File
+  file:
+    path: /etc/default/archive-web
+    state: absent
+
+- name: Remove Archive Web Systemd Service
+  file:
+    path: /etc/systemd/system/archive-web.service
+    state: absent
+
+- name: Stop Nginx Service
+  service:
+    name: nginx
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Nginx configuration
+  file:
+    path: /etc/nginx/conf.d/archive.conf
+    state: absent
+
+- name: Remove Nginx and Python Packages
+  dnf:
+    name:
+      - nginx
+      - python3
+      - python3-pip
+    state: absent
+  ignore_errors: yes
+
+- name: Remove CMP Platform Directory
+  file:
+    path: /opt/cmp_platform
+    state: absent
+
+- name: Close firewall ports
+  firewalld:
+    port: 80/tcp
+    permanent: yes
+    state: disabled
+    immediate: yes
+  ignore_errors: yes

@@ -1,0 +1,8 @@
+---
+# WAS Deploy Cleanup
+
+- name: Remove WAS Application Directory
+  file:
+    path: /opt/was_app
+    state: absent
+  ignore_errors: yes

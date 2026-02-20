@@ -1,0 +1,51 @@
+---
+# Playbook for cleaning up a deployed project environment
+# Usage: ansible-playbook -i inventories/project_<id>.ini cleanup.yml
+
+- name: 1. Clean Up Web Servers
+  hosts: web
+  become: yes
+  gather_facts: no
+  tags: [web]
+  roles:
+    - role: web
+      tasks_from: cleanup
+
+- name: 2. Clean Up Application Load Balancer
+  hosts: alb
+  become: yes
+  gather_facts: no
+  tags: [alb]
+  roles:
+    - role: alb
+      tasks_from: cleanup
+
+- name: 3. Clean Up Management Gateway & Redis
+  hosts: gateway
+  become: yes
+  gather_facts: no
+  tags: [gateway]
+  roles:
+    - role: gateway
+      tasks_from: cleanup
+    - role: redis
+      tasks_from: cleanup
+
+- name: 4. Clean Up Database Servers
+  hosts: db_cluster
+  become: yes
+  gather_facts: no
+  tags: [db]
+  roles:
+    - role: db
+      tasks_from: cleanup
+
+- name: 5. Clean Up WAS Deployment
+  hosts: web
+  become: yes
+  gather_facts: no
+  tags: [web]
+  roles:
+    - role: was_deploy
+      tasks_from: cleanup
+      when: was_filename is defined and was_filename != ''

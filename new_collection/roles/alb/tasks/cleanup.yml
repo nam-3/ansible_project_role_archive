@@ -1,0 +1,30 @@
+---
+# ALB Role Cleanup
+
+- name: Stop HAProxy Service
+  service:
+    name: haproxy
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove HAProxy configuration
+  file:
+    path: /etc/haproxy/haproxy.cfg
+    state: absent
+
+- name: Remove HAProxy Package
+  dnf:
+    name: haproxy
+    state: absent
+  ignore_errors: yes
+
+- name: Close firewall ports
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: disabled
+    immediate: yes
+  loop:
+    - 80/tcp
+    - 8080/tcp
+  ignore_errors: yes

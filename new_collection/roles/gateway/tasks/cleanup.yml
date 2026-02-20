@@ -1,0 +1,40 @@
+---
+# Gateway Role Cleanup
+
+- name: Stop Nginx Service
+  service:
+    name: nginx
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Nginx configuration
+  file:
+    path: /etc/nginx/conf.d/gateway.conf
+    state: absent
+
+- name: Remove Nginx Package
+  dnf:
+    name: nginx
+    state: absent
+  ignore_errors: yes
+
+- name: Disable IP Forwarding
+  copy:
+    content: "net.ipv4.ip_forward = 0\n"
+    dest: /etc/sysctl.d/99-ip-forward.conf
+    mode: '0644'
+
+- name: Apply IP Forwarding
+  command: sysctl -w net.ipv4.ip_forward=0
+  changed_when: false
+
+- name: Close firewall ports
+  firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: disabled
+    immediate: yes
+  loop:
+    - 80/tcp
+    - 8080/tcp
+  ignore_errors: yes
