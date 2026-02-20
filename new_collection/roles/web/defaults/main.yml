@@ -1,0 +1,6 @@
+---
+# Web role default variables
+service_name: "cmp-service"
+env_type: "dev"
+was_filename: ""
+redis_host: "127.0.0.1"

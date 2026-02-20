@@ -1,0 +1,26 @@
+---
+# WAS Deployment Role
+# 변수: was_filename (업로드된 최상위 폴더명), service_name (선택적)
+
+- name: Check if WAS filename is provided
+  fail:
+    msg: "was_filename variable is missing or empty."
+  when: was_filename is not defined or was_filename == ''
+
+- name: Create WAS Application Directory
+  file:
+    path: /opt/was_app
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy Uploaded WAS Files
+  # Controller(Ansible 서버)의 파일들을 Target(원격 서버)으로 복사
+  # src 경로는 playbook 실행 위치(playbooks/) 기준: ../roles/web/files/was_uploads/
+  copy:
+    src: "../roles/web/files/was_uploads/{{ was_filename }}/"
+    dest: "/opt/was_app/"
+    mode: preserve
+    directory_mode: '0755'
+  notify: Restart Archive Web

@@ -1,0 +1,29 @@
+---
+# ALB Role: HAProxy Load Balancer
+
+- name: Install HAProxy
+  dnf:
+    name: haproxy
+    state: present
+
+- name: Deploy HAProxy Configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: '0644'
+    validate: haproxy -c -f %s
+  notify: Restart HAProxy
+
+- name: Start and Enable HAProxy
+  service:
+    name: haproxy
+    state: started
+    enabled: yes
+
+- name: Open firewall port 80
+  firewalld:
+    port: 80/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes

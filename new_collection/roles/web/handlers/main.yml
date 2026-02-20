@@ -1,0 +1,10 @@
+---
+- name: Restart Nginx
+  service:
+    name: nginx
+    state: restarted
+
+- name: Restart Archive Web
+  service:
+    name: archive-web
+    state: restarted

@@ -1,0 +1,52 @@
+---
+# DB Role: PostgreSQL / MariaDB
+
+- name: Install PostgreSQL server
+  dnf:
+    name: postgresql-server
+    state: present
+  when: "'postgresql' in (packages_to_install | default(['postgresql']))"
+
+- name: Install MariaDB server
+  dnf:
+    name: mariadb-server
+    state: present
+  when: "'mysql' in (packages_to_install | default([]))"
+
+- name: Initialize PostgreSQL
+  command: postgresql-setup --initdb
+  args:
+    creates: /var/lib/pgsql/data/PG_VERSION
+  when: "'postgresql' in (packages_to_install | default(['postgresql']))"
+
+- name: Start and Enable PostgreSQL
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+  when: "'postgresql' in (packages_to_install | default(['postgresql']))"
+
+- name: Start and Enable MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+  when: "'mysql' in (packages_to_install | default([]))"
+
+- name: Open DB firewall port (PostgreSQL)
+  firewalld:
+    port: 5432/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  when: "'postgresql' in (packages_to_install | default(['postgresql']))"
+  ignore_errors: yes
+
+- name: Open DB firewall port (MariaDB)
+  firewalld:
+    port: 3306/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  when: "'mysql' in (packages_to_install | default([]))"
+  ignore_errors: yes

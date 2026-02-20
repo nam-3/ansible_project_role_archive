@@ -1,0 +1,5 @@
+---
+- name: Restart Archive Web
+  service:
+    name: archive-web
+    state: restarted

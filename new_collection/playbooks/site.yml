@@ -1,0 +1,129 @@
+---
+# =============================================================================
+# CMP Platform Ansible Collection - site.yml
+# 패키지 맵(pkg_map) 기반으로 역할별 설치/기동을 처리
+# extra_vars로 전달: target_ips, target_vm_names, packages_to_install,
+#                    vcenter_*, service_name, env_type, was_filename
+# =============================================================================
+
+# ── PLAY 0: VM 전원 ON + SSH 키 배포 ────────────────────────────────────────
+- name: 0. Bootstrap - VM Power On & SSH Key
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tags: [always, bootstrap]
+  tasks:
+
+    - name: Ensure Workload VMs are powered on
+      vmware.vmware_rest.vcenter_vm_power:
+        vcenter_hostname: "{{ vcenter_hostname }}"
+        vcenter_username: "{{ vcenter_username }}"
+        vcenter_password: "{{ vcenter_password }}"
+        vcenter_validate_certs: no
+        state: start
+        vm: "{{ item }}"
+      loop: "{{ target_vm_names }}"
+      ignore_errors: yes
+
+    - name: Wait for SSH on all target VMs
+      wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+        timeout: 300
+        delay: 5
+      loop: "{{ target_ips }}"
+      delegate_to: localhost
+
+    - name: Distribute SSH Key to target VMs
+      shell: |
+        sshpass -p 'Soldesk1.' ssh-copy-id \
+          -o StrictHostKeyChecking=no root@{{ item }}
+      loop: "{{ target_ips }}"
+      ignore_errors: yes
+
+# ── PLAY 1: Web 서버 역할 ────────────────────────────────────────────────────
+- name: 1. Deploy Web Servers
+  hosts: web
+  become: yes
+  gather_facts: yes
+  tags: [web]
+  roles:
+    - role: web
+    - role: was_deploy
+      when: was_filename is defined and was_filename != ''
+
+# ── PLAY 2: ALB (HAProxy) 역할 ──────────────────────────────────────────────
+- name: 2. Deploy Application Load Balancer
+  hosts: alb
+  become: yes
+  gather_facts: yes
+  tags: [alb]
+  roles:
+    - role: alb
+
+# ── PLAY 3: Gateway (Nginx Reverse Proxy + Redis) 역할 ───────────────────────
+- name: 3. Deploy Management Gateway
+  hosts: gateway
+  become: yes
+  gather_facts: yes
+  tags: [gateway]
+  roles:
+    - role: gateway
+    - role: redis
+
+# ── PLAY 4: DB (PostgreSQL / MariaDB) 역할 ──────────────────────────────────
+- name: 4. Deploy Database Servers
+  hosts: db
+  become: yes
+  gather_facts: yes
+  tags: [db]
+  roles:
+    - role: db
+
+# ── PLAY 5: 패키지 일괄 설치 (역할 무관 범용) ────────────────────────────────
+- name: 5. Install Requested Packages (All Hosts)
+  hosts: all
+  become: yes
+  gather_facts: yes
+  tags: [packages]
+  vars:
+    pkg_map:
+      nginx:         { pkg: "nginx",             svc: "nginx"      }
+      haproxy:       { pkg: "haproxy",           svc: "haproxy"    }
+      tomcat:        { pkg: "tomcat",            svc: "tomcat"     }
+      postgresql:    { pkg: "postgresql-server", svc: "postgresql" }
+      mysql:         { pkg: "mariadb-server",    svc: "mariadb"    }
+      redis:         { pkg: "redis",             svc: "redis"      }
+      docker:        { pkg: "docker-ce",         svc: "docker"     }
+      jenkins:       { pkg: "jenkins",           svc: "jenkins"    }
+      elasticsearch: { pkg: "elasticsearch",     svc: "elasticsearch" }
+      kibana:        { pkg: "kibana",            svc: "kibana"     }
+      nodejs:        { pkg: "nodejs",            svc: ""           }
+      python:        { pkg: "python3",           svc: ""           }
+
+  tasks:
+    - name: Install requested packages
+      dnf:
+        name: "{{ pkg_map[item].pkg }}"
+        state: present
+      loop: "{{ packages_to_install | default([]) }}"
+      when: item in pkg_map
+
+    - name: Initialize PostgreSQL (first time only)
+      command: postgresql-setup --initdb
+      args:
+        creates: /var/lib/pgsql/data/PG_VERSION
+      when: "'postgresql' in (packages_to_install | default([]))"
+
+    - name: Start and enable installed services
+      systemd:
+        name: "{{ pkg_map[item].svc }}"
+        state: started
+        enabled: yes
+        daemon_reload: yes
+      loop: "{{ packages_to_install | default([]) }}"
+      when:
+        - item in pkg_map
+        - pkg_map[item].svc != ""
+      ignore_errors: yes

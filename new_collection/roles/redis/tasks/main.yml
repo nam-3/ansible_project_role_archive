@@ -1,0 +1,36 @@
+---
+# Redis Role: In-Memory Data Store
+
+- name: Install Redis
+  dnf:
+    name: redis
+    state: present
+
+- name: Configure Redis bind address
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^bind '
+    line: 'bind 127.0.0.1 {{ ansible_host }}'
+    backup: yes
+  notify: Restart Redis
+
+- name: Disable Redis protected-mode
+  lineinfile:
+    path: /etc/redis/redis.conf
+    regexp: '^protected-mode '
+    line: 'protected-mode no'
+  notify: Restart Redis
+
+- name: Start and Enable Redis
+  service:
+    name: redis
+    state: started
+    enabled: yes
+
+- name: Open Redis firewall port
+  firewalld:
+    port: 6379/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes
