@@ -1,0 +1,8 @@
+---
+# was_deploy cleanup task
+
+- name: Remove deployment directory on target
+  file:
+    path: "{{ target_deploy_path | default('/opt/was_app') }}"
+    state: absent
+  ignore_errors: yes

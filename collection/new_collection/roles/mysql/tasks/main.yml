@@ -1,0 +1,13 @@
+---
+# mysql setup
+
+- name: Install MariaDB (MySQL)
+  dnf:
+    name: mariadb-server
+    state: present
+
+- name: Start and enable MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes

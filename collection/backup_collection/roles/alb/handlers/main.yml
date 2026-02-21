@@ -1,0 +1,8 @@
+---
+- name: Restart HAProxy
+  service:
+    name: haproxy
+    state: restarted
+
+- name: Reload Firewall
+  command: firewall-cmd --reload

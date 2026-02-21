@@ -1,0 +1,48 @@
+# Ansible Roles Implementation For CMP Program UI
+
+## Overview
+기존에 존재하던 복합 기능 위주의 롤(`alb`, `db`, `web` 등)을 삭제하고, 사용자가 제공한 **온클릭 서비스 CMP 프로그램 이미지**의 선택 목록에 맞추어 기능별로 분리된 총 15개의 새로운 Role을 구축했습니다.
+이로써 각 스크립트는 최소한의 의존성을 유지하며, 개별 선택 및 독립적 실행이 가능해졌습니다.
+
+## Changes Made
+
+### 1. 역할 분리 및 신규 생성 (15개)
+`c:\HybridCloud06\collection\new_collection\roles\` 하위에 다음의 롤들을 생성했습니다.
+각 롤은 기본 서비스 패키지 설치 및 구동을 담당하는 `tasks/main.yml` 과 설치된 항목을 제거하는 `tasks/cleanup.yml` 을 갖추고 있습니다.
+
+- **HA & NETWORK**
+  - `gateway`: IP 라우팅 포워드 처리
+  - `haproxy`: 웹 로드밸런서
+  - `patroni`: PostgreSQL 고가용성 제어. 기존 구조의 `db_haproxy` -> `etcd_db` -> `patroni`를 하나의 역할 안에서 직렬 호출하도록 병합했으며 그룹 조건 판별로 호스트 간 충돌을 제어했습니다.
+- **WEB (ENGINE)**
+  - `nginx`: Nginx 서버
+  - `tomcat`: 애플리케이션 컨테이너 엔진
+- **PROGRAM (RUNTIME)**
+  - `python`: pip 및 런타임
+  - `nodejs`: npm 및 런타임
+- **DB (DATA)**
+  - `postgresql`: 관계형 DB 단일 구축
+  - `mysql`: 관계형 DB 단일 구축
+  - `redis`: 인메모리 캐싱
+- **DEVOPS (TOOLS)**
+  - `elasticsearch`: 로깅 및 모니터링 엔진
+  - `kibana`: 로깅 뷰어
+  - `jenkins`: CI/CD 툴
+  - `docker`: 컨테이너 엔진
+- **SOURCE CODE UPLOAD (DEPLOYMENT)**
+  - `was_deploy`: IP 계산(사용자 명명 규칙 기반) 및 배포 경로 제어 로직 구현
+
+### 2. 동적 IP 매핑 설정 (`was_deploy`)
+- `hosts.ini` 의 네트워크 구성을 참고하여, 입력받은 타겟 VM의 이름(예: `wkld-20`)에서 끝자리 ID(`20`)를 추출.
+- 추출된 ID를 기반으로 서비스 IP(`192.168.10.20`)를 동적으로 구성하여 접근 및 배포할 수 있는 스마트 로직을 `tasks/main.yml` 안에 구현했습니다.
+
+### 3. 기존 Role 제거
+충돌 가능성이 있고 모듈성이 떨어지던 과거 디렉토리 구조 항목들(`alb`, `db`, `redis`, `web`)을 완전히 폐기(삭제) 조치했습니다.
+
+## Validation Results
+- 전체 개별 롤들의 디렉토리 구조 검증 완료
+  - `tasks/main.yml`, `tasks/cleanup.yml` 및 `handlers`, `templates` 골격 정상 구성 확인.
+- `was_deploy` 의 Jinja2 템플릿 Regex 필터링 텍스트 파싱 오류 여부 사전 문법 검토 완료.
+
+> [!NOTE]
+> 해당 구성물은 Base 스크립팅 레벨로 구성되어 있으므로 향후 고도화 시(실제 배포나 특정 서비스의 세부 Config 등) 각 롤별로 내용을 추가해 나가시면 됩니다.

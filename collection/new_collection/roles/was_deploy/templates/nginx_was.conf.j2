@@ -1,0 +1,12 @@
+server {
+    listen 80;
+    server_name _;
+
+    root {{ deploy_dest }};
+    index index.html index.htm index.php index.jsp;
+
+    # Basic configuration for serving WAS files directly or as a reverse proxy
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

@@ -1,0 +1,13 @@
+---
+# kibana setup
+
+- name: Install Kibana
+  dnf:
+    name: kibana
+    state: present
+
+- name: Start and enable Kibana
+  service:
+    name: kibana
+    state: started
+    enabled: yes

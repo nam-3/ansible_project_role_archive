@@ -1,0 +1,14 @@
+---
+# jenkins cleanup
+
+- name: Stop Jenkins
+  service:
+    name: jenkins
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Jenkins
+  dnf:
+    name: jenkins
+    state: absent
+  ignore_errors: yes

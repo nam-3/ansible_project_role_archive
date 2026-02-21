@@ -1,0 +1,60 @@
+global
+    log 127.0.0.1 local0
+    maxconn 4000
+    daemon
+
+defaults
+    log global
+    mode http
+    option httplog
+    option dontlognull
+    option http-server-close
+    timeout connect 5s
+    timeout client 50s
+    timeout server 50s
+    timeout tunnel 1h        # WebSocket 장기 연결 유지
+
+# ==========================================
+# Frontend
+# ==========================================
+frontend web_frontend
+    bind *:80
+
+    # WebSocket: /ws/ 경로 또는 Upgrade 헤더 → ws_backend
+    acl is_websocket hdr(Upgrade) -i websocket
+    acl is_ws_path   path_beg /ws/
+    use_backend ws_backend if is_websocket or is_ws_path
+
+    default_backend web_backend
+
+# ==========================================
+# Backend: 일반 HTTP
+# ==========================================
+backend web_backend
+    balance roundrobin
+    cookie SERVERID insert indirect nocache
+    option httpchk GET /api/public/settings
+    http-check expect status 200
+    {% for host in groups['web'] %}
+    server {{ host }} {{ hostvars[host]['service_ip'] }}:80 check inter 3s fall 3 rise 2 cookie {{ host }}
+    {% endfor %}
+
+# ==========================================
+# Backend: WebSocket 전용 (TCP 터널 유지)
+# ==========================================
+backend ws_backend
+    balance roundrobin
+    timeout tunnel 1h
+    {% for host in groups['web'] %}
+    server {{ host }}_ws {{ hostvars[host]['service_ip'] }}:80
+    {% endfor %}
+
+# ==========================================
+# Stats
+# ==========================================
+listen stats
+    bind *:9000
+    stats enable
+    stats uri /haproxy-stats
+    stats refresh 10s
+    stats auth admin:admin123

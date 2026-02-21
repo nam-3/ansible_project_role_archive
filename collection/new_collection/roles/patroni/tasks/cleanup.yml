@@ -1,0 +1,10 @@
+---
+# Patroni Integrated Cleanup logic
+
+- name: 1. Cleanup Load Balancers
+  include_tasks: cleanup_ha.yml
+  when: "'dblb' in group_names"
+
+- name: 2. Cleanup ETCD and Databases
+  include_tasks: cleanup_all.yml
+  when: "'db_cluster' in group_names"

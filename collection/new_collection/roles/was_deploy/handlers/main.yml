@@ -1,0 +1,14 @@
+---
+# Handlers for was_deploy
+
+- name: Restart Nginx Service
+  service:
+    name: nginx
+    state: restarted
+  ignore_errors: yes
+
+- name: Restart Tomcat Service
+  service:
+    name: tomcat
+    state: restarted
+  ignore_errors: yes

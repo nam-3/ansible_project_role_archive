@@ -1,0 +1,7 @@
+---
+# nodejs: App Runtime setup
+
+- name: Install Node.js
+  dnf:
+    name: nodejs
+    state: present

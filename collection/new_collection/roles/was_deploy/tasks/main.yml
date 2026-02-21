@@ -1,0 +1,57 @@
+---
+# was_deploy: Upload & Deploy WAS Application to specific VM
+
+- name: Set target IP based on VM name convention
+  set_fact:
+    target_app_ip: >-
+      {%- set vm_id = target_vm_name | regex_search('wkld-([0-9]+)', '\\1') | first | d('') -%}
+      {%- if vm_id != '' -%}
+      192.168.40.{{ vm_id }}
+      {%- else -%}
+      127.0.0.1
+      {%- endif -%}
+  when: target_vm_name is defined
+
+- name: Fail if target_vm_name is invalid or missing
+  fail:
+    msg: "Valid target_vm_name (e.g. wkld-20) and was_upload_path are required."
+  when: target_vm_name is not defined or target_app_ip == '127.0.0.1' or was_upload_path is not defined
+
+- name: Set deployment path variable
+  set_fact:
+    deploy_dest: "{{ target_deploy_path | default('/opt/was_app') }}"
+
+- name: Ensure deployment directory exists on target
+  file:
+    path: "{{ deploy_dest }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy uploaded WAS securely to target VM
+  copy:
+    src: "{{ was_upload_path }}"
+    dest: "{{ deploy_dest }}/"
+    mode: preserve
+    directory_mode: '0755'
+
+- name: Deploy Nginx configuration for WAS
+  template:
+    src: nginx_was.conf.j2
+    dest: /etc/nginx/conf.d/cmp_was.conf
+    owner: root
+    group: root
+    mode: '0644'
+  when: "'nginx' in (packages_to_install | default([]))"
+  notify: Restart Nginx Service
+
+- name: Deploy Tomcat configuration for WAS
+  template:
+    src: tomcat_server.xml.j2
+    dest: /opt/tomcat/conf/server.xml
+    owner: tomcat
+    group: tomcat
+    mode: '0644'
+  when: "'tomcat' in (packages_to_install | default([]))"
+  notify: Restart Tomcat Service

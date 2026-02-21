@@ -1,0 +1,62 @@
+---
+# 1. 패키지 설치
+- name: Install HAProxy and Keepalived
+  dnf:
+    name: ['haproxy', 'keepalived']
+    state: present
+
+# 2. 커널 파라미터 (VIP 바인딩 허용)
+- name: Allow non-local bind (for VIP)
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: '1'
+    state: present
+    reload: yes
+
+# 3. 20번 대역(hb_ip)을 가진 인터페이스 이름 찾기
+- name: Find Interface for 20.x network (hb_ip)
+  set_fact:
+    vip_interface: "{{ item }}"
+  loop: "{{ ansible_interfaces }}"
+  when:
+    - hostvars[inventory_hostname]['ansible_' + item]['ipv4'] is defined
+    - hostvars[inventory_hostname]['ansible_' + item]['ipv4']['address'] == hb_ip
+
+- name: Set default interface if not found
+  set_fact:
+    vip_interface: "ens256"
+  when: vip_interface is not defined
+
+# 4. 설정 파일 배포
+- name: Deploy HAProxy Config
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+  notify: Restart HAProxy
+
+- name: Deploy Keepalived Config
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+  notify: Restart Keepalived
+
+# 5. 서비스 기동
+- name: Start Services
+  service: name={{ item }} state=started enabled=yes
+  loop: [keepalived, haproxy]
+
+- name: Open firewall ports for HAProxy (DBLB)
+  firewalld:
+    port: 5432/tcp
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes
+
+- name: Allow VRRP Protocol (for Keepalived)
+  firewalld:
+    rich_rule: rule protocol value="vrrp" accept
+    permanent: yes
+    state: enabled
+    immediate: yes
+  ignore_errors: yes

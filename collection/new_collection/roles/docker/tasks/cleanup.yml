@@ -1,0 +1,14 @@
+---
+# docker cleanup
+
+- name: Stop Docker
+  service:
+    name: docker
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Docker CE
+  dnf:
+    name: docker-ce
+    state: absent
+  ignore_errors: yes

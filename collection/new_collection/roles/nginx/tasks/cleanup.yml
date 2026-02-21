@@ -1,0 +1,14 @@
+---
+# nginx cleanup
+
+- name: Stop Nginx
+  service:
+    name: nginx
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Nginx
+  dnf:
+    name: nginx
+    state: absent
+  ignore_errors: yes

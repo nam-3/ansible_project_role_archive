@@ -1,0 +1,14 @@
+---
+# kibana cleanup
+
+- name: Stop Kibana
+  service:
+    name: kibana
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Kibana
+  dnf:
+    name: kibana
+    state: absent
+  ignore_errors: yes

@@ -1,0 +1,12 @@
+---
+# gateway: Setup IP Forwarding
+
+- name: Enable IP Forwarding
+  copy:
+    content: "net.ipv4.ip_forward = 1\n"
+    dest: /etc/sysctl.d/99-ip-forward.conf
+    mode: '0644'
+
+- name: Apply sysctl
+  command: sysctl -w net.ipv4.ip_forward=1
+  changed_when: false

@@ -1,0 +1,13 @@
+---
+# elasticsearch setup
+
+- name: Install Elasticsearch
+  dnf:
+    name: elasticsearch
+    state: present
+
+- name: Start and enable Elasticsearch
+  service:
+    name: elasticsearch
+    state: started
+    enabled: yes

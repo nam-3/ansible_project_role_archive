@@ -1,0 +1,20 @@
+---
+# mysql cleanup
+
+- name: Stop MariaDB
+  service:
+    name: mariadb
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove MariaDB and data
+  dnf:
+    name: mariadb-server
+    state: absent
+  ignore_errors: yes
+
+- name: Remove MySQL data directory
+  file:
+    path: /var/lib/mysql
+    state: absent
+  ignore_errors: yes

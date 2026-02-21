@@ -1,0 +1,144 @@
+---
+# ==============================================================================
+# Network Configuration Playbook
+# ------------------------------------------------------------------------------
+# Configures additional network interfaces (ens224, ens256) based on
+# inventory variables (service_ip, hb_ip, external_ip).
+#
+# Assumptions:
+#   - NIC #2 (ens224): Used for Service Network (VLAN 10/30) OR External
+#   - NIC #3 (ens256): Used for Heartbeat Network (VLAN 20)
+#   - Default Prefix: /24 (255.255.255.0)
+# ==============================================================================
+
+- name: Configure Network Interfaces
+  hosts: all:!gateway
+  become: yes
+  vars:
+    # Interface Names (Modify if your VM has different names like eth1, eth2)
+    # Interface Names (Modify if your VM has different names like eth1, eth2)
+    # Default: NIC #2 (ens224) - Vlan 10
+    default_svc_iface: "ens224"
+    # Heartbeat: NIC #3 (ens256) - Vlan 20
+    hb_iface: "ens256"
+    # Data: NIC #4 (ens224 -> ens256 -> ens288 is typical for VMware 4th NIC)
+    # WARNING: Verify this interface name on your actual VM
+    data_iface: "ens161" 
+    
+    # Common Netmask
+    default_prefix: "24"
+
+  pre_tasks:
+    - name: Determine Service Interface (Web/ALB -> NIC #2)
+      set_fact:
+        target_svc_iface: "{{ default_svc_iface }}"
+      when: "'web' in group_names or 'alb' in group_names or 'gateway' in group_names"
+
+    - name: Determine Service Interface (DB/DBLB -> NIC #4)
+      set_fact:
+        target_svc_iface: "{{ data_iface }}"
+      when: "'db_cluster' in group_names or 'dblb' in group_names"
+
+    # Fallback if not in any specific group (use default)
+    - name: Set Default Service Interface if undefined
+      set_fact:
+        target_svc_iface: "{{ default_svc_iface }}"
+      when: target_svc_iface is undefined
+
+  tasks:
+    - name: Install NetworkManager-tui (nmcli)
+      dnf:
+        name: NetworkManager-tui
+        state: present
+
+    # --------------------------------------------------------------------------
+    # 0. Cleanup unused network profiles
+    # --------------------------------------------------------------------------
+    
+    - name: Remove ens224 profile on DB/DBLB nodes (not needed)
+      shell: nmcli con delete "ens224" || true
+      when: "'db_cluster' in group_names or 'dblb' in group_names"
+      ignore_errors: yes
+
+    - name: Remove ens161 profile on Web/ALB nodes (not needed)
+      shell: nmcli con delete "ens161" || true
+      when: "'web' in group_names or 'alb' in group_names"
+      ignore_errors: yes
+
+    - name: Remove ens288 profile (non-existent interface)
+      shell: nmcli con delete "ens288" || true
+      ignore_errors: yes
+
+    - name: Remove duplicate ens192 profiles
+      shell: |
+        # Keep only the first ens192 profile, delete others
+        nmcli -t -f NAME,DEVICE con show | grep "ens192:ens192" | tail -n +2 | cut -d: -f1 | xargs -r -I {} nmcli con delete "{}"
+      ignore_errors: yes
+
+    # --------------------------------------------------------------------------
+    # 1. Configure Service IP / External IP
+    # --------------------------------------------------------------------------
+    
+    # Case A: External IP (Gateway) - SKIPPED (Manually Configured)
+    # - name: "Configure NIC #2 ({{ target_svc_iface }}) - External Network"
+    #   nmcli:
+    #     conn_name: "{{ target_svc_iface }}"
+    #     ifname: "{{ target_svc_iface }}"
+    #     type: ethernet
+    #     ip4: "{{ external_ip }}/{{ default_prefix }}"
+    #     state: present
+    #   when: external_ip is defined
+
+    # Case B: Service IP (Web, ALB, DB, DBLB)
+    - name: "Remove Default Connection for Service NIC ({{ target_svc_iface }})"
+      shell: |
+        nmcli con show | grep "{{ target_svc_iface }}" | grep -v "{{ target_svc_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
+      when: service_ip is defined
+      ignore_errors: yes
+
+    - name: "Configure Service NIC ({{ target_svc_iface }}) - Service/Data Network"
+      nmcli:
+        conn_name: "{{ target_svc_iface }}"
+        ifname: "{{ target_svc_iface }}"
+        type: ethernet
+        ip4: "{{ service_ip }}/{{ default_prefix }}"
+        state: present
+      when: service_ip is defined
+
+    - name: "Bring Up Service NIC ({{ target_svc_iface }})"
+      shell: nmcli con up "{{ target_svc_iface }}"
+      when: service_ip is defined
+
+    # --------------------------------------------------------------------------
+    # 2. Configure Heartbeat IP (NIC #3 - ens256)
+    # --------------------------------------------------------------------------
+    
+    # Case C: Heartbeat IP (DBLB only usually)
+    - name: "Remove Default Connection for NIC #3 ({{ hb_iface }})"
+      shell: |
+        nmcli con show | grep "{{ hb_iface }}" | grep -v "{{ hb_iface }}" | awk '{print $1}' | xargs -r nmcli con delete
+      when: hb_ip is defined
+      ignore_errors: yes
+
+    - name: "Configure NIC #3 ({{ hb_iface }}) - Heartbeat Network"
+      nmcli:
+        conn_name: "{{ hb_iface }}"
+        ifname: "{{ hb_iface }}"
+        type: ethernet
+        ip4: "{{ hb_ip }}/{{ default_prefix }}"
+        state: present
+      when: hb_ip is defined
+
+    - name: "Bring Up NIC #3 ({{ hb_iface }})"
+      shell: nmcli con up "{{ hb_iface }}"
+      when: hb_ip is defined
+
+    # --------------------------------------------------------------------------
+    # 3. Apply Changes
+    # --------------------------------------------------------------------------
+    
+    - name: Restart NetworkManager to apply changes
+      service:
+        name: NetworkManager
+        state: restarted
+

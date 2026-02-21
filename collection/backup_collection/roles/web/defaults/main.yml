@@ -1,0 +1,12 @@
+---
+# Web role default variables
+# DB 관련 변수: web-only 배포 시 DB가 없으므로 기본값 제공
+db_user: "cmpuser"
+db_password: "cmppassword"
+db_name: "cmpdb"
+dblb_vip: "127.0.0.1"   # DB 없을 때 localhost로 fallback
+
+# 기타
+service_name: "unnamed"
+env_type: "dev"
+was_filename: ""

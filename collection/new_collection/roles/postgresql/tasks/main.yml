@@ -1,0 +1,18 @@
+---
+# postgresql setup
+
+- name: Install PostgreSQL server
+  dnf:
+    name: postgresql-server
+    state: present
+
+- name: Initialize PostgreSQL database
+  command: postgresql-setup --initdb
+  args:
+    creates: /var/lib/pgsql/data/PG_VERSION
+
+- name: Start and enable PostgreSQL
+  service:
+    name: postgresql
+    state: started
+    enabled: yes

@@ -1,0 +1,15 @@
+---
+# haproxy cleanup
+
+- name: Stop and disable HAProxy
+  service:
+    name: haproxy
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+
+- name: Remove HAProxy
+  dnf:
+    name: haproxy
+    state: absent
+  ignore_errors: yes

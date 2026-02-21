@@ -1,0 +1,14 @@
+---
+# elasticsearch cleanup
+
+- name: Stop Elasticsearch
+  service:
+    name: elasticsearch
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Elasticsearch
+  dnf:
+    name: elasticsearch
+    state: absent
+  ignore_errors: yes

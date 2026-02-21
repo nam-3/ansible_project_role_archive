@@ -1,0 +1,101 @@
+---
+# =============================================================================
+# CMP Platform Ansible Collection - site.yml
+# =============================================================================
+
+- name: 0. Bootstrap - VM Power On & SSH Key
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tags: [always, bootstrap]
+  tasks:
+    - name: Ensure Workload VMs are powered on (pyvmomi)
+      community.vmware.vmware_guest_powerstate:
+        hostname: "{{ vcenter_hostname }}"
+        username: "{{ vcenter_username }}"
+        password: "{{ vcenter_password }}"
+        validate_certs: no
+        name: "{{ item }}"
+        state: powered-on
+      delegate_to: localhost
+      loop: "{{ target_vm_names | default([]) }}"
+      ignore_errors: yes
+
+    - name: Wait for SSH on all target VMs
+      wait_for:
+        host: "{{ item }}"
+        port: 22
+        state: started
+        timeout: 300
+        delay: 5
+      loop: "{{ target_ips | default([]) }}"
+      delegate_to: localhost
+
+    - name: Distribute SSH Key to target VMs
+      shell: |
+        sshpass -p 'Soldesk1.' ssh-copy-id \
+          -o StrictHostKeyChecking=no root@{{ item }}
+      loop: "{{ target_ips | default([]) }}"
+      ignore_errors: yes
+
+- name: 1. Deploy Selected Roles
+  hosts: all
+  become: yes
+  gather_facts: yes
+  tasks:
+    # ── HA & NETWORK ──
+    - name: Run gateway role
+      include_role: name=gateway
+      when: "'gateway' in (packages_to_install | default([]))"
+    - name: Run haproxy role
+      include_role: name=haproxy
+      when: "'haproxy' in (packages_to_install | default([]))"
+    - name: Run patroni role
+      include_role: name=patroni
+      when: "'patroni' in (packages_to_install | default([]))"
+
+    # ── WEB (ENGINE) ──
+    - name: Run nginx role
+      include_role: name=nginx
+      when: "'nginx' in (packages_to_install | default([]))"
+    - name: Run tomcat role
+      include_role: name=tomcat
+      when: "'tomcat' in (packages_to_install | default([]))"
+
+    # ── PROGRAM (RUNTIME) ──
+    - name: Run python role
+      include_role: name=python
+      when: "'python' in (packages_to_install | default([]))"
+    - name: Run nodejs role
+      include_role: name=nodejs
+      when: "'nodejs' in (packages_to_install | default([]))"
+
+    # ── DB (DATA) ──
+    - name: Run postgresql role
+      include_role: name=postgresql
+      when: "'postgresql' in (packages_to_install | default([]))"
+    - name: Run mysql role
+      include_role: name=mysql
+      when: "'mysql' in (packages_to_install | default([]))"
+    - name: Run redis role
+      include_role: name=redis
+      when: "'redis' in (packages_to_install | default([]))"
+
+    # ── DEVOPS (TOOLS) ──
+    - name: Run elasticsearch role
+      include_role: name=elasticsearch
+      when: "'elasticsearch' in (packages_to_install | default([]))"
+    - name: Run kibana role
+      include_role: name=kibana
+      when: "'kibana' in (packages_to_install | default([]))"
+    - name: Run jenkins role
+      include_role: name=jenkins
+      when: "'jenkins' in (packages_to_install | default([]))"
+    - name: Run docker role
+      include_role: name=docker
+      when: "'docker' in (packages_to_install | default([]))"
+
+    # ── SOURCE CODE UPLOAD (DEPLOYMENT) ──
+    - name: Run was_deploy role
+      include_role: name=was_deploy
+      when: was_filename is defined and was_filename != ''

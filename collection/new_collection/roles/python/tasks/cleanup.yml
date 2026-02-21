@@ -1,0 +1,13 @@
+---
+# python cleanup
+
+# WARNING: Do NOT remove python3 or python3-pip!
+# CentOS 9 relies on python3 for essential system operations (including dnf and Ansible). 
+# Removing it will break the OS and crash the active Ansible connection.
+# - name: Remove Python 3 and pip
+#   dnf:
+#     name: 
+#       - python3
+#       - python3-pip
+#     state: absent
+#   ignore_errors: yes

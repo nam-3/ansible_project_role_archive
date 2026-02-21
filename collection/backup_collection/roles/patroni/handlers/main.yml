@@ -1,0 +1,4 @@
+---
+- name: Restart Patroni
+  service: name=patroni state=restarted daemon_reload=yes
+  when: is_db_node

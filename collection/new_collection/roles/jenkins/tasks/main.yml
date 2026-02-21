@@ -1,0 +1,18 @@
+---
+# jenkins setup
+
+- name: Install Java prerequisites
+  dnf:
+    name: java-11-openjdk-devel # Typical requirement
+    state: present
+
+- name: Install Jenkins
+  dnf:
+    name: jenkins
+    state: present
+
+- name: Start and enable Jenkins
+  service:
+    name: jenkins
+    state: started
+    enabled: yes

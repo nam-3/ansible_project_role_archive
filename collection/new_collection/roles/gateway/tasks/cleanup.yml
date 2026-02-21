@@ -1,0 +1,14 @@
+---
+# gateway cleanup
+
+- name: Disable IP Forwarding
+  copy:
+    content: "net.ipv4.ip_forward = 0\n"
+    dest: /etc/sysctl.d/99-ip-forward.conf
+    mode: '0644'
+  ignore_errors: yes
+
+- name: Apply sysctl
+  command: sysctl -w net.ipv4.ip_forward=0
+  changed_when: false
+  ignore_errors: yes

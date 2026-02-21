@@ -1,0 +1,15 @@
+---
+# Patroni Integration Role (db_haproxy -> etcd_db -> patroni core)
+# Executes based on group availability (preventing DB logic from running on DBLB alone)
+
+- name: 1. Application/DB Load Balancer Configuration
+  include_tasks: db_haproxy.yml
+  when: "'dblb' in group_names"
+
+- name: 2. ETCD Cluster Configuration
+  include_tasks: etcd_db.yml
+  when: "'db_cluster' in group_names"
+
+- name: 3. Patroni / PostgreSQL Core Configuration
+  include_tasks: patroni_core.yml
+  when: "'db_cluster' in group_names"

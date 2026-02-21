@@ -1,0 +1,13 @@
+---
+# docker setup
+
+- name: Install Docker CE
+  dnf:
+    name: docker-ce
+    state: present
+
+- name: Start and enable Docker
+  service:
+    name: docker
+    state: started
+    enabled: yes

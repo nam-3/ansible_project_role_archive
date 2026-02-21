@@ -1,0 +1,65 @@
+---
+# Playbook for cleaning up a deployed project environment
+# Usage: ansible-playbook -i inventories/project_<id>.ini cleanup.yml
+
+- name: Clean Up Deployed Services
+  hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+    # ── HA & NETWORK ──
+    - name: Run gateway cleanup
+      include_role: name=gateway tasks_from=cleanup
+      when: "'gateway' in (packages_to_install | default([]))"
+    - name: Run haproxy cleanup
+      include_role: name=haproxy tasks_from=cleanup
+      when: "'haproxy' in (packages_to_install | default([]))"
+    - name: Run patroni cleanup
+      include_role: name=patroni tasks_from=cleanup
+      when: "'patroni' in (packages_to_install | default([]))"
+
+    # ── WEB (ENGINE) ──
+    - name: Run nginx cleanup
+      include_role: name=nginx tasks_from=cleanup
+      when: "'nginx' in (packages_to_install | default([]))"
+    - name: Run tomcat cleanup
+      include_role: name=tomcat tasks_from=cleanup
+      when: "'tomcat' in (packages_to_install | default([]))"
+
+    # ── PROGRAM (RUNTIME) ──
+    - name: Run python cleanup
+      include_role: name=python tasks_from=cleanup
+      when: "'python' in (packages_to_install | default([]))"
+    - name: Run nodejs cleanup
+      include_role: name=nodejs tasks_from=cleanup
+      when: "'nodejs' in (packages_to_install | default([]))"
+
+    # ── DB (DATA) ──
+    - name: Run postgresql cleanup
+      include_role: name=postgresql tasks_from=cleanup
+      when: "'postgresql' in (packages_to_install | default([]))"
+    - name: Run mysql cleanup
+      include_role: name=mysql tasks_from=cleanup
+      when: "'mysql' in (packages_to_install | default([]))"
+    - name: Run redis cleanup
+      include_role: name=redis tasks_from=cleanup
+      when: "'redis' in (packages_to_install | default([]))"
+
+    # ── DEVOPS (TOOLS) ──
+    - name: Run elasticsearch cleanup
+      include_role: name=elasticsearch tasks_from=cleanup
+      when: "'elasticsearch' in (packages_to_install | default([]))"
+    - name: Run kibana cleanup
+      include_role: name=kibana tasks_from=cleanup
+      when: "'kibana' in (packages_to_install | default([]))"
+    - name: Run jenkins cleanup
+      include_role: name=jenkins tasks_from=cleanup
+      when: "'jenkins' in (packages_to_install | default([]))"
+    - name: Run docker cleanup
+      include_role: name=docker tasks_from=cleanup
+      when: "'docker' in (packages_to_install | default([]))"
+
+    # ── SOURCE CODE UPLOAD (DEPLOYMENT) ──
+    - name: Run was_deploy cleanup
+      include_role: name=was_deploy tasks_from=cleanup
+      when: was_filename is defined and was_filename != ''

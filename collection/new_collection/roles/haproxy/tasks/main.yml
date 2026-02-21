@@ -1,0 +1,13 @@
+---
+# haproxy: Web ALB setup
+
+- name: Install HAProxy
+  dnf:
+    name: haproxy
+    state: present
+
+- name: Enable HAProxy
+  service:
+    name: haproxy
+    state: started
+    enabled: yes

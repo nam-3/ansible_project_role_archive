@@ -1,0 +1,13 @@
+---
+# tomcat: Web Engine setup
+
+- name: Install Tomcat
+  dnf:
+    name: tomcat
+    state: present
+
+- name: Start and enable Tomcat
+  service:
+    name: tomcat
+    state: started
+    enabled: yes

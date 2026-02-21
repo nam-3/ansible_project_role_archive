@@ -1,0 +1,14 @@
+---
+# tomcat cleanup
+
+- name: Stop Tomcat
+  service:
+    name: tomcat
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove Tomcat
+  dnf:
+    name: tomcat
+    state: absent
+  ignore_errors: yes

@@ -1,0 +1,20 @@
+---
+# postgresql cleanup
+
+- name: Stop PostgreSQL
+  service:
+    name: postgresql
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove PostgreSQL and data
+  dnf:
+    name: postgresql-server
+    state: absent
+  ignore_errors: yes
+
+- name: Remove PostgreSQL data directory
+  file:
+    path: /var/lib/pgsql/data
+    state: absent
+  ignore_errors: yes

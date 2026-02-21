@@ -1,0 +1,8 @@
+---
+# nodejs cleanup
+
+- name: Remove Node.js
+  dnf:
+    name: nodejs
+    state: absent
+  ignore_errors: yes
